@@ -14,7 +14,7 @@ spec:
     - namePattern: otel-demo
       images:
         - alias: productcatalog
-          imageName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/product-catalog
+          imageName: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/product-catalog
           commonUpdateSettings:
             updateStrategy: newest-build
             allowTags: "regexp:^[0-9a-f]{40}$"
@@ -23,7 +23,7 @@ spec:
               name: services.product-catalog.image.repository
               tag: services.product-catalog.image.tag
         - alias: payment
-          imageName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/payment
+          imageName: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/payment
           commonUpdateSettings:
             updateStrategy: newest-build
             allowTags: "regexp:^[0-9a-f]{40}$"
@@ -32,7 +32,7 @@ spec:
               name: services.payment.image.repository
               tag: services.payment.image.tag
         - alias: recommendation
-          imageName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/recommendation
+          imageName: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/recommendation
           commonUpdateSettings:
             updateStrategy: newest-build
             allowTags: "regexp:^[0-9a-f]{40}$"
