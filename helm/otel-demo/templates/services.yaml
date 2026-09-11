@@ -1,0 +1,21 @@
+{{- range $name, $service := .Values.services }}
+{{- if $service.enabled }}
+{{- $context := dict "root" $ "name" $name "service" $service }}
+
+{{ include "otel-demo.serviceConfigMaps" $context }}
+
+{{ include "otel-demo.serviceAccount" $context }}
+---
+{{ include "otel-demo.serviceDeployment" $context }}
+---
+{{ include "otel-demo.serviceService" $context }}
+---
+{{ include "otel-demo.serviceHPA" $context }}
+---
+{{ include "otel-demo.servicePDB" $context }}
+---
+{{ include "otel-demo.serviceNetworkPolicy" $context }}
+---
+
+{{- end }}
+{{- end }}

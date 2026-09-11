@@ -1,0 +1,77 @@
+name: Product Catalog CI
+
+on:
+  pull_request:
+    paths:
+      - "src/product-catalog/**"
+      - ".dockerignore"
+      - ".github/workflows/ci-product-catalog.yaml"
+      - ".github/workflows/reusable-build-push.yaml"
+
+  push:
+    branches: [main]
+    paths:
+      - "src/product-catalog/**"
+      - ".dockerignore"
+      - ".github/workflows/ci-product-catalog.yaml"
+      - ".github/workflows/reusable-build-push.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/product-catalog
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: src/product-catalog/go.mod
+          cache: true
+          cache-dependency-path: src/product-catalog/go.sum
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run unit tests
+        run: go test ./...
+
+  # Separate callers keep id-token unavailable to every PR job, including
+  # jobs inside the reusable workflow. Only the main caller delegates OIDC.
+  pull-request-image:
+    needs: test
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-build-push.yaml
+    with:
+      service-name: product-catalog
+      build-context: .
+      dockerfile: src/product-catalog/Dockerfile
+      ecr-repository: product-catalog
+
+  main-image:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-build-push.yaml
+    with:
+      service-name: product-catalog
+      build-context: .
+      dockerfile: src/product-catalog/Dockerfile
+      ecr-repository: product-catalog

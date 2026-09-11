@@ -1,0 +1,81 @@
+name: Recommendation CI
+
+on:
+  pull_request:
+    paths:
+      - "src/recommendation/**"
+      - ".dockerignore"
+      - ".github/workflows/ci-recommendation.yaml"
+      - ".github/workflows/reusable-build-push.yaml"
+
+  push:
+    branches: [main]
+    paths:
+      - "src/recommendation/**"
+      - ".dockerignore"
+      - ".github/workflows/ci-recommendation.yaml"
+      - ".github/workflows/reusable-build-push.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/recommendation
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: src/recommendation/.python-version
+          cache: pip
+          cache-dependency-path: |
+            src/recommendation/requirements.txt
+            src/recommendation/requirements-test.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --require-hashes -r requirements.txt
+          python -m pip install -r requirements-test.txt
+
+      - name: Run unit tests
+        run: pytest
+
+  # Separate callers keep id-token unavailable to every PR job, including
+  # jobs inside the reusable workflow. Only the main caller delegates OIDC.
+  pull-request-image:
+    needs: test
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-build-push.yaml
+    with:
+      service-name: recommendation
+      build-context: .
+      dockerfile: src/recommendation/Dockerfile
+      ecr-repository: recommendation
+
+  main-image:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-build-push.yaml
+    with:
+      service-name: recommendation
+      build-context: .
+      dockerfile: src/recommendation/Dockerfile
+      ecr-repository: recommendation

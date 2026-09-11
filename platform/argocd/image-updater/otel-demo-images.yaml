@@ -1,0 +1,42 @@
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: otel-demo-images
+  namespace: argocd
+spec:
+  writeBackConfig:
+    method: git:secret:argocd/image-updater-git-creds
+    gitConfig:
+      repository: git@github.com:damir254/EKS-opentelemetry.git
+      branch: main
+      writeBackTarget: helmvalues:./values.yaml
+  applicationRefs:
+    - namePattern: otel-demo
+      images:
+        - alias: productcatalog
+          imageName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/product-catalog
+          commonUpdateSettings:
+            updateStrategy: newest-build
+            allowTags: "regexp:^[0-9a-f]{40}$"
+          manifestTargets:
+            helm:
+              name: services.product-catalog.image.repository
+              tag: services.product-catalog.image.tag
+        - alias: payment
+          imageName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/payment
+          commonUpdateSettings:
+            updateStrategy: newest-build
+            allowTags: "regexp:^[0-9a-f]{40}$"
+          manifestTargets:
+            helm:
+              name: services.payment.image.repository
+              tag: services.payment.image.tag
+        - alias: recommendation
+          imageName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/recommendation
+          commonUpdateSettings:
+            updateStrategy: newest-build
+            allowTags: "regexp:^[0-9a-f]{40}$"
+          manifestTargets:
+            helm:
+              name: services.recommendation.image.repository
+              tag: services.recommendation.image.tag

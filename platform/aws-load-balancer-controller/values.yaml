@@ -1,0 +1,31 @@
+# Populate from Terraform outputs with scripts/configure-aws.py before bootstrap.
+clusterName: otel-demo-eks
+region: eu-central-1
+vpcId: vpc-028195ca1dfabbb5b
+
+replicaCount: 2
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+  # EKS Pod Identity is associated by Terraform; no IAM role annotation is needed.
+
+ingressClass: alb
+createIngressClassResource: true
+
+# This project only requires ALB Ingress reconciliation.
+enableServiceMutatorWebhook: false
+enableShield: false
+enableWaf: false
+enableWafv2: false
+controllerConfig:
+  featureGates:
+    ALBGatewayAPI: false
+    NLBGatewayAPI: false
+    GlobalAcceleratorController: false
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

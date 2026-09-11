@@ -1,0 +1,101 @@
+{{- if .Values.flagd.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.flagd.service.name }}-config
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flagd
+data:
+  demo.flagd.json: |
+    {
+      "$schema": "https://flagd.dev/schema/v0/flags.json",
+      "flags": {
+        "productCatalogFailure": {
+          "state": "ENABLED",
+          "variants": {"off": false, "on": true},
+          "defaultVariant": "off",
+          "targeting": {"if": [{"==": [{"var": "product_id"}, "OLJCESPC7Z"]}, "off", "off"]}
+        },
+        "recommendationCacheFailure": {
+          "state": "ENABLED",
+          "variants": {"off": false, "on": true},
+          "defaultVariant": "off"
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.flagd.service.name }}
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flagd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "otel-demo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: flagd
+  template:
+    metadata:
+      labels:
+        {{- include "otel-demo.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: flagd
+    spec:
+      containers:
+        - name: flagd
+          image: "{{ .Values.flagd.image.repository }}:{{ .Values.flagd.image.tag }}"
+          imagePullPolicy: {{ .Values.flagd.image.pullPolicy }}
+          command: ["/flagd-build"]
+          args: ["start", "--port", "8013", "--ofrep-port", "8016", "--uri", "file:/etc/flagd/demo.flagd.json"]
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: flagd
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4318
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: http/protobuf
+          ports:
+            - name: rpc
+              containerPort: 8013
+            - name: ofrep
+              containerPort: 8016
+          readinessProbe:
+            tcpSocket:
+              port: rpc
+          livenessProbe:
+            tcpSocket:
+              port: rpc
+          resources:
+            {{- toYaml .Values.flagd.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/flagd
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Values.flagd.service.name }}-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.flagd.service.name }}
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: flagd
+spec:
+  type: {{ .Values.flagd.service.type }}
+  selector:
+    {{- include "otel-demo.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: flagd
+  ports:
+    - name: rpc
+      port: 8013
+      targetPort: rpc
+    - name: ofrep
+      port: 8016
+      targetPort: ofrep
+{{- end }}

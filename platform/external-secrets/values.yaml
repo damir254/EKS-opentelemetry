@@ -1,0 +1,4 @@
+serviceAccount:
+  create: true
+  name: external-secrets
+  # Terraform associates this controller ServiceAccount with its IAM role.

@@ -1,0 +1,2 @@
+# Test-only dependencies; never installed in the application image.
+pytest==9.1.1

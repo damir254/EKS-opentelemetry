@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: image-updater
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argocd-image-updater
+      targetRevision: 1.2.4
+      helm:
+        releaseName: argocd-image-updater
+        valueFiles:
+          - $values/platform/argocd/image-updater-values.yaml
+    - repoURL: https://github.com/damir254/EKS-opentelemetry.git
+      targetRevision: main
+      ref: values
+      path: platform/argocd/image-updater
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    # Child Applications reconcile independently while controllers and CRDs start.
+    retry:
+      limit: 10
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      - SkipDryRunOnMissingResource=true
