@@ -1,0 +1,101 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: otel-demo-workloads
+  namespace: monitoring
+  labels:
+    # Matches the existing monitoring release's Prometheus ruleSelector.
+    release: monitoring
+    app.kubernetes.io/part-of: otel-demo
+spec:
+  groups:
+    - name: otel-demo.workloads
+      rules:
+        # The application Argo Application deploys release otel-demo to default.
+        - record: otel_demo:deployment:info
+          expr: |
+            max by (namespace, deployment) (
+              kube_deployment_labels{
+                job="kube-state-metrics", namespace="default",
+                label_app_kubernetes_io_name="otel-demo",
+                label_app_kubernetes_io_instance="otel-demo"
+              }
+            )
+        # Reuse the stack's ReplicaSet -> Deployment ownership recording rule.
+        # Only active Deployment pods qualify; Jobs and completed pods do not.
+        - record: otel_demo:pod:info
+          expr: |
+            max by (namespace, pod, deployment) (
+              label_replace(
+                namespace_workload_pod:kube_pod_owner:relabel{
+                  namespace="default", workload_type="deployment"
+                },
+                "deployment", "$1", "workload", "(.+)"
+              )
+            )
+            and on (namespace, deployment) otel_demo:deployment:info
+            and on (namespace, pod) (
+              max by (namespace, pod) (
+                kube_pod_status_phase{
+                  job="kube-state-metrics", namespace="default",
+                  phase=~"Pending|Running|Unknown"
+                }
+              ) == 1
+            )
+        # Match the actual HPA scale target, rather than assuming its name.
+        - record: otel_demo:hpa:info
+          expr: |
+            max by (namespace, horizontalpodautoscaler, deployment) (
+              label_replace(
+                kube_horizontalpodautoscaler_info{
+                  job="kube-state-metrics", namespace="default",
+                  scaletargetref_kind="Deployment"
+                },
+                "deployment", "$1", "scaletargetref_name", "(.+)"
+              )
+            )
+            and on (namespace, deployment) otel_demo:deployment:info
+        - alert: OtelDemoDeploymentUnavailable
+          expr: |
+            (
+              max by (namespace, deployment) (
+                kube_deployment_status_replicas_unavailable{
+                  job="kube-state-metrics", namespace="default"
+                }
+              ) > 0
+            )
+            and on (namespace, deployment) otel_demo:deployment:info
+          for: 5m
+          labels:
+            severity: warning
+            project: otel-demo
+          annotations:
+            summary: 'Otel demo Deployment {{ $labels.deployment }} has unavailable replicas'
+            description: >-
+              Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has had
+              unavailable replicas for at least 5 minutes. Check pod readiness,
+              rollout events, and capacity across eligible zones and nodes.
+        - alert: OtelDemoPodRestartingFrequently
+          expr: |
+            (
+              max by (namespace, pod, container) (
+                increase(kube_pod_container_status_restarts_total{
+                  job="kube-state-metrics", namespace="default"
+                }[15m])
+              ) > 3
+            )
+            * on (namespace, pod) group_left (deployment) otel_demo:pod:info
+          for: 2m
+          labels:
+            severity: warning
+            project: otel-demo
+          annotations:
+            summary: 'Otel demo container {{ $labels.pod }}/{{ $labels.container }} is restarting frequently'
+            description: >-
+              Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }}
+              (Deployment {{ $labels.deployment }}) has more than 3 restarts in the
+              last 15 minutes, sustained for 2 minutes. Check termination reasons,
+              logs, probes, and resource limits.
+        # KubeHpaMaxedOut is reused with a 10m hold in monitoring-values.yaml.
+        # KubeDeploymentReplicasMismatch already covers replicas below desired;
+        # a second project rule would duplicate the unavailable-replica warning.

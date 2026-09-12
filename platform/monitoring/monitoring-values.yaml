@@ -1,6 +1,18 @@
 grafana:
   enabled: true
 
+# Reuse the stack's HPA alert instead of emitting a duplicate project alert.
+customRules:
+  KubeHpaMaxedOut:
+    for: 10m
+defaultRules:
+  additionalRuleAnnotations:
+    KubeHpaMaxedOut:
+      description: >-
+        HPA {{ $labels.namespace }}/{{ $labels.horizontalpodautoscaler }} has
+        been at its maximum replica count for at least 10 minutes. Review
+        workload demand, the replica limit, and available cluster capacity.
+
 prometheus:
   enabled: true
   prometheusSpec:
@@ -16,6 +28,11 @@ prometheus:
 
 kubeStateMetrics:
   enabled: true
+
+kube-state-metrics:
+  # Scope project rules by the existing Helm labels, without exporting all labels.
+  metricLabelsAllowlist:
+    - deployments=[app.kubernetes.io/name,app.kubernetes.io/instance]
 
 nodeExporter:
   enabled: true

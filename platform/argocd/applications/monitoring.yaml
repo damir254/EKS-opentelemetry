@@ -15,6 +15,9 @@ spec:
           - $values/platform/monitoring/monitoring-values.yaml
     - repoURL: https://github.com/damir254/EKS-opentelemetry.git
       targetRevision: main
+      path: platform/monitoring/resources
+      directory:
+        include: "*.yaml"
       ref: values
   destination:
     server: https://kubernetes.default.svc

@@ -1,0 +1,468 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-demo-platform-health
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/part-of: otel-demo
+data:
+  otel-demo-platform-health.json: |
+    {
+      "uid": "otel-demo-platform-health",
+      "title": "Otel Demo - Platform Health",
+      "description": "Deployment health for the otel-demo Helm release in default. Uses the existing kube-prometheus-stack metrics, ownership records and Prometheus data source.",
+      "tags": [
+        "otel-demo",
+        "platform",
+        "kubernetes"
+      ],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "editable": false,
+      "refresh": "30s",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "templating": {
+        "list": [
+          {
+            "name": "namespace",
+            "label": "Namespace",
+            "type": "query",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "query": {
+              "query": "label_values(otel_demo:deployment:info, namespace)",
+              "refId": "namespace"
+            },
+            "refresh": 1,
+            "sort": 1,
+            "multi": false,
+            "includeAll": false,
+            "current": {
+              "text": "default",
+              "value": "default"
+            }
+          },
+          {
+            "name": "workload",
+            "label": "Deployment",
+            "type": "query",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "prometheus"
+            },
+            "query": {
+              "query": "label_values(otel_demo:deployment:info{namespace=~\"${namespace:regex}\"}, deployment)",
+              "refId": "workload"
+            },
+            "refresh": 1,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "allValue": ".*",
+            "current": {
+              "text": "All",
+              "value": "$__all"
+            }
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "title": "Deployment replicas",
+          "description": "Desired replicas follow the live Deployment, including HPA changes. Available replicas meet Kubernetes availability requirements.",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (namespace, deployment) (kube_deployment_spec_replicas{job=\"kube-state-metrics\", namespace=~\"${namespace:regex}\"}) and on (namespace, deployment) otel_demo:deployment:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} desired",
+              "range": true
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (namespace, deployment) (kube_deployment_status_replicas_available{job=\"kube-state-metrics\", namespace=~\"${namespace:regex}\"}) and on (namespace, deployment) otel_demo:deployment:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} available",
+              "range": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Active pods by Deployment",
+          "description": "Pending, Running and Unknown pods belonging to selected Deployments. Completed pods and Jobs are excluded; zero is shown for Deployments without active pods.",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 0,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "count by (namespace, deployment) (otel_demo:pod:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}) or on (namespace, deployment) (0 * otel_demo:deployment:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"})",
+              "legendFormat": "{{deployment}}",
+              "range": true
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "Container restart rate",
+          "description": "Restarts per minute over the query interval. The project alert uses more than 3 restarts over 15 minutes, sustained for 2 minutes.",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 8,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix:restarts/min",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (namespace, pod, container) (rate(kube_pod_container_status_restarts_total{job=\"kube-state-metrics\", namespace=~\"${namespace:regex}\"}[$__rate_interval])) * 60 * on (namespace, pod) group_left (deployment) otel_demo:pod:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} / {{pod}} / {{container}}",
+              "range": true
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "CPU usage by pod",
+          "description": "CPU cores consumed by application containers, grouped by their actual Deployment ownership. Excludes the infrastructure/POD container.",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 8,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "suffix:cores",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (namespace, pod) (max by (namespace, pod, container) (rate(container_cpu_usage_seconds_total{job=\"kubelet\", metrics_path=\"/metrics/cadvisor\", namespace=~\"${namespace:regex}\", container!=\"\", container!=\"POD\", image!=\"\"}[$__rate_interval]))) * on (namespace, pod) group_left (deployment) otel_demo:pod:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} / {{pod}}",
+              "range": true
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "title": "Memory working set by pod",
+          "description": "Working-set bytes of application containers, grouped by their actual Deployment ownership.",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 16,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "sum by (namespace, pod) (max by (namespace, pod, container) (container_memory_working_set_bytes{job=\"kubelet\", metrics_path=\"/metrics/cadvisor\", namespace=~\"${namespace:regex}\", container!=\"\", container!=\"POD\", image!=\"\"})) * on (namespace, pod) group_left (deployment) otel_demo:pod:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} / {{pod}}",
+              "range": true
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "title": "HPA replicas",
+          "description": "Current, desired and maximum replicas for HPAs targeting selected Deployments. No series is expected for Deployments without an HPA. KubeHpaMaxedOut warns after 10 minutes at maximum, excluding fixed-size HPAs.",
+          "type": "timeseries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 16,
+            "w": 12,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "color": {
+                "mode": "palette-classic"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "table",
+              "placement": "bottom",
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (namespace, horizontalpodautoscaler) (kube_horizontalpodautoscaler_status_current_replicas{job=\"kube-state-metrics\", namespace=~\"${namespace:regex}\"}) * on (namespace, horizontalpodautoscaler) group_left (deployment) otel_demo:hpa:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} / {{horizontalpodautoscaler}} current",
+              "range": true
+            },
+            {
+              "refId": "B",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (namespace, horizontalpodautoscaler) (kube_horizontalpodautoscaler_status_desired_replicas{job=\"kube-state-metrics\", namespace=~\"${namespace:regex}\"}) * on (namespace, horizontalpodautoscaler) group_left (deployment) otel_demo:hpa:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} / {{horizontalpodautoscaler}} desired",
+              "range": true
+            },
+            {
+              "refId": "C",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (namespace, horizontalpodautoscaler) (kube_horizontalpodautoscaler_spec_max_replicas{job=\"kube-state-metrics\", namespace=~\"${namespace:regex}\"}) * on (namespace, horizontalpodautoscaler) group_left (deployment) otel_demo:hpa:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"}",
+              "legendFormat": "{{deployment}} / {{horizontalpodautoscaler}} max",
+              "range": true
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "title": "Firing workload alerts",
+          "description": "Firing custom and default alerts associated with the selected Deployments, their active pods, or their HPAs. An empty table means no matching firing alerts when metrics are available.",
+          "type": "table",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 24,
+            "w": 24,
+            "h": 8
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "expr": "max by (namespace, alertname, severity, deployment, pod, container, horizontalpodautoscaler) (\n  (ALERTS{alertstate=\"firing\", namespace=~\"${namespace:regex}\"} * on (namespace, deployment) group_left () otel_demo:deployment:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"})\n  or\n  (ALERTS{alertstate=\"firing\", namespace=~\"${namespace:regex}\", deployment=\"\"} * on (namespace, pod) group_left (deployment) otel_demo:pod:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"})\n  or\n  (ALERTS{alertstate=\"firing\", namespace=~\"${namespace:regex}\", deployment=\"\", pod=\"\"} * on (namespace, horizontalpodautoscaler) group_left (deployment) otel_demo:hpa:info{namespace=~\"${namespace:regex}\", deployment=~\"${workload:regex}\"})\n)",
+              "instant": true,
+              "range": false,
+              "format": "table"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "filterFieldsByName",
+              "options": {
+                "include": {
+                  "names": [
+                    "alertname",
+                    "severity",
+                    "namespace",
+                    "deployment",
+                    "pod",
+                    "container",
+                    "horizontalpodautoscaler"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
