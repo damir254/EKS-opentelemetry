@@ -13,6 +13,9 @@ defaultEnv:
   OTEL_RESOURCE_ATTRIBUTES:
     value: "service.version=1.0.0"
 services:
+  # Optional per-service topologySpread: {enabled: true, zone: true, hostname: true}.
+  # Omitted flags default to false. Enable for replicated stateless services.
+  # Selectors come from pod labels and apply at any replica count, including HPA scaling.
   recommendation:
     enabled: true
     replicaCount: 1
@@ -151,6 +154,10 @@ services:
   payment:
     enabled: true
     replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
     image:
       repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/payment
       tag: "70006e4e7c271deffcef7188c2c348d7c5598ad5"

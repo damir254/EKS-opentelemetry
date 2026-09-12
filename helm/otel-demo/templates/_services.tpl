@@ -19,6 +19,11 @@
 app.kubernetes.io/component: {{ .name }}
 {{- end }}
 
+{{- define "otel-demo.servicePodLabels" -}}
+{{ include "otel-demo.selectorLabels" .root }}
+app.kubernetes.io/component: {{ .name }}
+{{- end }}
+
 {{- define "otel-demo.serviceAccount" -}}
 {{- if .service.serviceAccount.create }}
 apiVersion: v1
@@ -63,10 +68,30 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "otel-demo.selectorLabels" .root | nindent 8 }}
-        app.kubernetes.io/component: {{ .name }}
+        {{- include "otel-demo.servicePodLabels" . | nindent 8 }}
     spec:
       enableServiceLinks: false
+
+      {{- $topologySpread := .service.topologySpread | default (dict) }}
+      {{- if and $topologySpread.enabled (or $topologySpread.zone $topologySpread.hostname) }}
+      topologySpreadConstraints:
+        {{- if $topologySpread.zone }}
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "otel-demo.servicePodLabels" . | nindent 14 }}
+        {{- end }}
+        {{- if $topologySpread.hostname }}
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "otel-demo.servicePodLabels" . | nindent 14 }}
+        {{- end }}
+      {{- end }}
 
       {{- $serviceAccountName := include "otel-demo.serviceAccountName" . }}
       {{- if $serviceAccountName }}
