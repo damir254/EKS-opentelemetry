@@ -1,7 +1,7 @@
 # Populate from Terraform outputs with scripts/configure-aws.py before bootstrap.
 clusterName: otel-demo-eks
 region: eu-central-1
-vpcId: vpc-028195ca1dfabbb5b
+vpcId: vpc-042aff16d5927bddc
 
 replicaCount: 2
 serviceAccount:
