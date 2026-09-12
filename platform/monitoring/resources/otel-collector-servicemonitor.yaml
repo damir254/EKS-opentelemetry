@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-demo-collector
+  namespace: monitoring
+  labels:
+    release: monitoring
+    app.kubernetes.io/part-of: otel-demo
+spec:
+  namespaceSelector:
+    matchNames: [default]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-demo
+      app.kubernetes.io/instance: otel-demo
+      app.kubernetes.io/component: otel-collector
+  endpoints:
+    - port: prometheus
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      # Preserve Kubernetes target namespace/job labels when OTLP supplies them.
+      honorLabels: false

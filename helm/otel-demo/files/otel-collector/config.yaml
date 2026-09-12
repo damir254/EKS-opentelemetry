@@ -1,0 +1,58 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 192
+    spike_limit_mib: 64
+  batch: {}
+connectors:
+  span_metrics:
+    namespace: otel_demo.span.metrics
+    histogram:
+      unit: s
+      explicit:
+        buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
+    # Span names can contain arbitrary paths/IDs. Keep collector.instance.id.
+    exclude_dimensions: [span.name]
+    aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
+    metrics_flush_interval: 15s
+    metrics_expiration: 15m
+    series_expiration: 15m
+    resource_metrics_key_attributes: [service.name]
+    aggregation_cardinality_limit: 1000
+exporters:
+  debug:
+    verbosity: basic
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    translation_strategy: UnderscoreEscapingWithSuffixes
+    # This Collector receives the demo's telemetry. Native OTLP metrics are
+    # exported without the span-metrics namespace and receive this project label.
+    const_labels:
+      project: otel-demo
+    resource_to_telemetry_conversion:
+      enabled: false
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug, span_metrics]
+    metrics:
+      receivers: [otlp, span_metrics]
+      processors: [memory_limiter, batch]
+      exporters: [debug, prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [debug]

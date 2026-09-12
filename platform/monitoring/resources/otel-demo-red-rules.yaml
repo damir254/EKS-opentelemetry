@@ -1,0 +1,88 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: otel-demo-application-red
+  namespace: monitoring
+  labels:
+    release: monitoring
+    app.kubernetes.io/part-of: otel-demo
+spec:
+  groups:
+    - name: otel-demo.application-red
+      rules:
+        # Collector 0.157.0, namespace otel_demo.span.metrics, histogram unit s,
+        # Prometheus translation_strategy UnderscoreEscapingWithSuffixes.
+        # Count SERVER spans only; client/internal spans are separate operations.
+        - record: otel_demo:server_calls:rate5m
+          expr: |
+            sum by (namespace, service_name) (
+              rate(otel_demo_span_metrics_calls_total{
+                project="otel-demo", namespace="default",
+                service_name!="", span_kind="SPAN_KIND_SERVER"
+              }[5m])
+            )
+        - record: otel_demo:server_errors:rate5m
+          expr: |
+            sum by (namespace, service_name) (
+              rate(otel_demo_span_metrics_calls_total{
+                project="otel-demo", namespace="default", service_name!="",
+                span_kind="SPAN_KIND_SERVER", status_code="STATUS_CODE_ERROR"
+              }[5m])
+            )
+            or on (namespace, service_name) (0 * otel_demo:server_calls:rate5m)
+        - record: otel_demo:server_errors:ratio5m
+          expr: |
+            otel_demo:server_errors:rate5m
+            / clamp_min(otel_demo:server_calls:rate5m, 1e-9)
+        - record: otel_demo:server_duration_seconds:p95_5m
+          expr: |
+            histogram_quantile(0.95,
+              sum by (namespace, service_name, le) (
+                rate(otel_demo_span_metrics_duration_seconds_bucket{
+                  project="otel-demo", namespace="default",
+                  service_name!="", span_kind="SPAN_KIND_SERVER"
+                }[5m])
+              )
+            )
+            and on (namespace, service_name) (otel_demo:server_calls:rate5m > 0)
+        - record: otel_demo:server_duration_seconds:p99_5m
+          expr: |
+            histogram_quantile(0.99,
+              sum by (namespace, service_name, le) (
+                rate(otel_demo_span_metrics_duration_seconds_bucket{
+                  project="otel-demo", namespace="default",
+                  service_name!="", span_kind="SPAN_KIND_SERVER"
+                }[5m])
+              )
+            )
+            and on (namespace, service_name) (otel_demo:server_calls:rate5m > 0)
+        - alert: OtelDemoHighErrorRate
+          expr: |
+            (otel_demo:server_errors:ratio5m > 0.05)
+            and on (namespace, service_name) (otel_demo:server_calls:rate5m >= 1)
+          for: 5m
+          labels:
+            severity: warning
+            project: otel-demo
+          annotations:
+            summary: 'High server error ratio for {{ $labels.service_name }}'
+            description: >-
+              Service {{ $labels.namespace }}/{{ $labels.service_name }} has more
+              than 5% errored SERVER spans over a 5-minute window, sustained for
+              5 minutes with at least 1 request/second. Errors use OTel span status
+              ERROR; inspect the service logs and downstream dependencies.
+        - alert: OtelDemoHighP95Latency
+          expr: |
+            (otel_demo:server_duration_seconds:p95_5m > 1)
+            and on (namespace, service_name) (otel_demo:server_calls:rate5m >= 1)
+          for: 10m
+          labels:
+            severity: warning
+            project: otel-demo
+          annotations:
+            summary: 'High p95 server latency for {{ $labels.service_name }}'
+            description: >-
+              Service {{ $labels.namespace }}/{{ $labels.service_name }} has p95
+              SERVER span duration above 1 second over a 5-minute window,
+              sustained for 10 minutes with at least 1 request/second. Check slow
+              dependencies, resource saturation, and application logs.
