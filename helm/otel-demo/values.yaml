@@ -150,7 +150,7 @@ services:
       mountPath: /tmp
   payment:
     enabled: true
-    replicaCount: 1
+    replicaCount: 2
     image:
       repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/payment
       tag: "70006e4e7c271deffcef7188c2c348d7c5598ad5"
