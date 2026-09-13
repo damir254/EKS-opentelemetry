@@ -176,25 +176,25 @@ services:
                 stableSubsetName: stable
                 canarySubsetName: canary
           steps:
-            - setWeight: 10
-            - pause: {duration: 60s}
-            - analysis: &paymentAnalysis
-                analysisRunMetadata:
-                  labels:
-                    app.kubernetes.io/component: payment
-                templates:
-                  - templateName: payment-red
-                args:
-                  - name: canary-hash
-                    valueFrom:
-                      podTemplateHashValue: Latest
-            - setWeight: 25
-            - pause: {duration: 60s}
-            - analysis: *paymentAnalysis
-            - setWeight: 50
-            - pause: {duration: 60s}
-            - analysis: *paymentAnalysis
-            - setWeight: 100
+          - setWeight: 10
+          - pause: {duration: 60s}
+          - analysis: &paymentAnalysis
+              analysisRunMetadata:
+                labels:
+                  app.kubernetes.io/component: payment
+              templates:
+              - templateName: payment-red
+              args:
+              - name: canary-hash
+                valueFrom:
+                  podTemplateHashValue: Latest
+          - setWeight: 25
+          - pause: {duration: 60s}
+          - analysis: *paymentAnalysis
+          - setWeight: 50
+          - pause: {duration: 60s}
+          - analysis: *paymentAnalysis
+          - setWeight: 100
     hpa:
       enabled: true
       minReplicas: 2
@@ -206,7 +206,7 @@ services:
       hostname: true
     image:
       repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/payment
-      tag: "70006e4e7c271deffcef7188c2c348d7c5598ad5"
+      tag: "2fb4bed51e5212d38cff78c6f2cd6842b2d76a73"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true
