@@ -3,6 +3,10 @@ clusterName: otel-demo-eks
 region: eu-central-1
 vpcId: vpc-0eddfbe3308837760
 
+# The chart creates the internal CA/serving Certificates and CA-injection
+# annotations. cert-manager owns the TLS Secret and renews the serving cert.
+enableCertManager: true
+
 replicaCount: 2
 serviceAccount:
   create: true

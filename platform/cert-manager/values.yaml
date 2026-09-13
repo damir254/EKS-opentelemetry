@@ -1,0 +1,4 @@
+# Internal webhook certificate lifecycle only. AWS LBC creates its own Issuers
+# and Certificates; no public issuer or ACME configuration is needed here.
+crds:
+  enabled: true

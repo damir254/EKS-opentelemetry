@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: aws-load-balancer-controller
   namespace: argocd
+  annotations:
+    # cert-manager (-5) must be healthy before its Certificate/Issuer CRs sync.
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   sources:
@@ -19,8 +22,8 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system
-  # Helm generates webhook certificates during rendering. Keep the live secret
-  # and matching CA bundles stable across Argo CD refreshes and syncs.
+  # cert-manager owns Secret data; cainjector owns webhook CA bundles. Retain
+  # these narrow exclusions, including for the existing TLS Secret's handoff.
   ignoreDifferences:
     - group: ""
       kind: Secret

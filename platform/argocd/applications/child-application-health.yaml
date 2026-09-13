@@ -10,11 +10,22 @@ metadata:
     argocd.argoproj.io/sync-options: ServerSideApply=true,DisableClientSideApplyMigration=true
 data:
   resource.customizations.health.argoproj.io_Application: |
-    local dependencies = { ["istio-base"] = true, ["istiod"] = true, ["argo-rollouts"] = true }
+    local dependencies = {
+      ["istio-base"] = true, ["istiod"] = true, ["argo-rollouts"] = true,
+      ["cert-manager"] = true, ["aws-load-balancer-controller"] = true
+    }
     if not dependencies[obj.metadata.name] then
       return { status = "Healthy", message = "No controller dependency gate" }
     end
     local hs = { status = "Progressing", message = "Waiting for controller application sync and health" }
+    -- cert-manager's chart includes a PostSync startup API check. Wait for it
+    -- as well as Deployment health before allowing AWS LBC to create CRs.
+    if obj.metadata.name == "cert-manager" then
+      if obj.status == nil or obj.status.operationState == nil or obj.status.operationState.phase ~= "Succeeded" then
+        hs.message = "Waiting for cert-manager startup API check to complete"
+        return hs
+      end
+    end
     if obj.status ~= nil and obj.status.sync ~= nil and obj.status.sync.status == "Synced" then
       if obj.status.health ~= nil then
         hs.status = obj.status.health.status
@@ -22,3 +33,30 @@ data:
       end
     end
     return hs
+  # Deployment/Certificate health alone does not guarantee that cainjector has
+  # populated the admission webhooks yet. Gate only AWS LBC's configurations;
+  # cert-manager's own webhooks must not depend on this certificate chain.
+  resource.customizations.health.admissionregistration.k8s.io_MutatingWebhookConfiguration: |
+    if obj.metadata.name == "aws-load-balancer-webhook" then
+      if obj.webhooks == nil or #obj.webhooks == 0 then
+        return { status = "Progressing", message = "Waiting for AWS LBC webhooks" }
+      end
+      for _, webhook in ipairs(obj.webhooks) do
+        if webhook.clientConfig == nil or webhook.clientConfig.caBundle == nil or webhook.clientConfig.caBundle == "" then
+          return { status = "Progressing", message = "Waiting for cert-manager CA injection" }
+        end
+      end
+    end
+    return { status = "Healthy" }
+  resource.customizations.health.admissionregistration.k8s.io_ValidatingWebhookConfiguration: |
+    if obj.metadata.name == "aws-load-balancer-webhook" then
+      if obj.webhooks == nil or #obj.webhooks == 0 then
+        return { status = "Progressing", message = "Waiting for AWS LBC webhooks" }
+      end
+      for _, webhook in ipairs(obj.webhooks) do
+        if webhook.clientConfig == nil or webhook.clientConfig.caBundle == nil or webhook.clientConfig.caBundle == "" then
+          return { status = "Progressing", message = "Waiting for cert-manager CA injection" }
+        end
+      end
+    end
+    return { status = "Healthy" }
