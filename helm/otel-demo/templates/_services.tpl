@@ -293,37 +293,3 @@ spec:
       {{- include "otel-demo.serviceSelectorLabels" . | nindent 6 }}
 {{- end }}
 {{- end }}
-
-{{- define "otel-demo.serviceNetworkPolicy" -}}
-{{- if and .service.networkPolicy .service.networkPolicy.enabled }}
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: {{ include "otel-demo.serviceName" . }}
-  labels:
-    {{- include "otel-demo.labels" .root | nindent 4 }}
-    app.kubernetes.io/component: {{ .name }}
-spec:
-  podSelector:
-    matchLabels:
-      {{- include "otel-demo.serviceSelectorLabels" . | nindent 6 }}
-
-  policyTypes:
-    {{- if .service.networkPolicy.ingress }}
-    - Ingress
-    {{- end }}
-    {{- if .service.networkPolicy.egress }}
-    - Egress
-    {{- end }}
-
-  {{- with .service.networkPolicy.ingress }}
-  ingress:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-
-  {{- with .service.networkPolicy.egress }}
-  egress:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
-{{- end }}
-{{- end }}

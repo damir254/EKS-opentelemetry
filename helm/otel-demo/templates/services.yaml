@@ -14,8 +14,6 @@
 ---
 {{ include "otel-demo.servicePDB" $context }}
 ---
-{{ include "otel-demo.serviceNetworkPolicy" $context }}
----
 
 {{- end }}
 {{- end }}
