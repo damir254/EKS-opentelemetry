@@ -78,6 +78,7 @@ spec:
           address: {{ .Values.paymentAnalysis.prometheusAddress | quote }}
           query: |
             sum(rate(otel_demo_span_metrics_calls_total{
+              namespace="{{ .Release.Namespace }}",
               service_name="payment", span_kind="SPAN_KIND_SERVER",
               rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}"
             }[2m])) or vector(0)
@@ -91,12 +92,14 @@ spec:
           address: {{ .Values.paymentAnalysis.prometheusAddress | quote }}
           query: |
             (sum(rate(otel_demo_span_metrics_calls_total{
+              namespace="{{ .Release.Namespace }}",
               service_name="payment", span_kind="SPAN_KIND_SERVER",
               rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}",
               status_code="STATUS_CODE_ERROR"
             }[2m])) or vector(0))
             /
             clamp_min(sum(rate(otel_demo_span_metrics_calls_total{
+              namespace="{{ .Release.Namespace }}",
               service_name="payment", span_kind="SPAN_KIND_SERVER",
               rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}"
             }[2m])) or vector(0), 0.001)
@@ -111,6 +114,7 @@ spec:
           query: |
             histogram_quantile(0.95,
               sum by (le) (rate(otel_demo_span_metrics_duration_seconds_bucket{
+                namespace="{{ .Release.Namespace }}",
                 service_name="payment", span_kind="SPAN_KIND_SERVER",
                 rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}"
               }[2m]))

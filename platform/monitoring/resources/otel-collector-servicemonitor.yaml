@@ -8,7 +8,7 @@ metadata:
     app.kubernetes.io/part-of: otel-demo
 spec:
   namespaceSelector:
-    matchNames: [default]
+    matchNames: [dev]
   selector:
     matchLabels:
       app.kubernetes.io/name: otel-demo

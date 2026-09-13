@@ -11,7 +11,7 @@ data:
     {
       "uid": "otel-demo-platform-health",
       "title": "Otel Demo - Platform Health",
-      "description": "Deployment health for the otel-demo Helm release in default. Uses the existing kube-prometheus-stack metrics, ownership records and Prometheus data source.",
+      "description": "Deployment health for the otel-demo Helm release in dev. Uses the existing kube-prometheus-stack metrics, ownership records and Prometheus data source.",
       "tags": [
         "otel-demo",
         "platform",
@@ -45,8 +45,8 @@ data:
             "multi": false,
             "includeAll": false,
             "current": {
-              "text": "default",
-              "value": "default"
+              "text": "dev",
+              "value": "dev"
             }
           },
           {

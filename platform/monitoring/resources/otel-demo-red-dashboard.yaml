@@ -37,7 +37,7 @@ data:
               "uid": "prometheus"
             },
             "query": {
-              "query": "label_values(otel_demo:server_calls:rate5m{namespace=\"default\"}, service_name)",
+              "query": "label_values(otel_demo:server_calls:rate5m{namespace=\"dev\"}, service_name)",
               "refId": "service"
             },
             "refresh": 1,
@@ -98,7 +98,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "otel_demo:server_calls:rate5m{namespace=\"default\", service_name=~\"${service:regex}\"}",
+              "expr": "otel_demo:server_calls:rate5m{namespace=\"dev\", service_name=~\"${service:regex}\"}",
               "legendFormat": "{{service_name}}",
               "range": true,
               "instant": false
@@ -151,7 +151,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "100 * otel_demo:server_errors:ratio5m{namespace=\"default\", service_name=~\"${service:regex}\"}",
+              "expr": "100 * otel_demo:server_errors:ratio5m{namespace=\"dev\", service_name=~\"${service:regex}\"}",
               "legendFormat": "{{service_name}}",
               "range": true,
               "instant": false
@@ -203,7 +203,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "otel_demo:server_duration_seconds:p95_5m{namespace=\"default\", service_name=~\"${service:regex}\"}",
+              "expr": "otel_demo:server_duration_seconds:p95_5m{namespace=\"dev\", service_name=~\"${service:regex}\"}",
               "legendFormat": "{{service_name}}",
               "range": true,
               "instant": false
@@ -255,7 +255,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "otel_demo:server_duration_seconds:p99_5m{namespace=\"default\", service_name=~\"${service:regex}\"}",
+              "expr": "otel_demo:server_duration_seconds:p99_5m{namespace=\"dev\", service_name=~\"${service:regex}\"}",
               "legendFormat": "{{service_name}}",
               "range": true,
               "instant": false
@@ -305,7 +305,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sort_desc(sum by (namespace, service_name) (increase(otel_demo_span_metrics_calls_total{project=\"otel-demo\", namespace=\"default\", service_name=~\"${service:regex}\", service_name!=\"\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])))",
+              "expr": "sort_desc(sum by (namespace, service_name) (increase(otel_demo_span_metrics_calls_total{project=\"otel-demo\", namespace=\"dev\", service_name=~\"${service:regex}\", service_name!=\"\", span_kind=\"SPAN_KIND_SERVER\"}[$__range])))",
               "legendFormat": "{{service_name}}",
               "range": false,
               "instant": true
@@ -357,7 +357,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "otel_demo:server_errors:rate5m{namespace=\"default\", service_name=~\"${service:regex}\"}",
+              "expr": "otel_demo:server_errors:rate5m{namespace=\"dev\", service_name=~\"${service:regex}\"}",
               "legendFormat": "{{service_name}}",
               "range": true,
               "instant": false
@@ -393,7 +393,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "ALERTS{project=\"otel-demo\", namespace=\"default\", alertname=~\"OtelDemoHighErrorRate|OtelDemoHighP95Latency\", service_name=~\"${service:regex}\", alertstate=\"firing\"}",
+              "expr": "ALERTS{project=\"otel-demo\", namespace=\"dev\", alertname=~\"OtelDemoHighErrorRate|OtelDemoHighP95Latency\", service_name=~\"${service:regex}\", alertstate=\"firing\"}",
               "format": "table",
               "instant": true,
               "range": false

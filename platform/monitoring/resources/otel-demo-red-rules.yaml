@@ -17,7 +17,7 @@ spec:
           expr: |
             sum by (namespace, service_name) (
               rate(otel_demo_span_metrics_calls_total{
-                project="otel-demo", namespace="default",
+                project="otel-demo", namespace="dev",
                 service_name!="", span_kind="SPAN_KIND_SERVER"
               }[5m])
             )
@@ -25,7 +25,7 @@ spec:
           expr: |
             sum by (namespace, service_name) (
               rate(otel_demo_span_metrics_calls_total{
-                project="otel-demo", namespace="default", service_name!="",
+                project="otel-demo", namespace="dev", service_name!="",
                 span_kind="SPAN_KIND_SERVER", status_code="STATUS_CODE_ERROR"
               }[5m])
             )
@@ -39,7 +39,7 @@ spec:
             histogram_quantile(0.95,
               sum by (namespace, service_name, le) (
                 rate(otel_demo_span_metrics_duration_seconds_bucket{
-                  project="otel-demo", namespace="default",
+                  project="otel-demo", namespace="dev",
                   service_name!="", span_kind="SPAN_KIND_SERVER"
                 }[5m])
               )
@@ -50,7 +50,7 @@ spec:
             histogram_quantile(0.99,
               sum by (namespace, service_name, le) (
                 rate(otel_demo_span_metrics_duration_seconds_bucket{
-                  project="otel-demo", namespace="default",
+                  project="otel-demo", namespace="dev",
                   service_name!="", span_kind="SPAN_KIND_SERVER"
                 }[5m])
               )

@@ -11,12 +11,12 @@ spec:
   groups:
     - name: otel-demo.workloads
       rules:
-        # The application Argo Application deploys release otel-demo to default.
+        # The application Argo Application deploys release otel-demo to dev.
         - record: otel_demo:deployment:info
           expr: |
             max by (namespace, deployment) (
               kube_deployment_labels{
-                job="kube-state-metrics", namespace="default",
+                job="kube-state-metrics", namespace="dev",
                 label_app_kubernetes_io_name="otel-demo",
                 label_app_kubernetes_io_instance="otel-demo"
               }
@@ -28,7 +28,7 @@ spec:
             max by (namespace, pod, deployment) (
               label_replace(
                 namespace_workload_pod:kube_pod_owner:relabel{
-                  namespace="default", workload_type="deployment"
+                  namespace="dev", workload_type="deployment"
                 },
                 "deployment", "$1", "workload", "(.+)"
               )
@@ -37,7 +37,7 @@ spec:
             and on (namespace, pod) (
               max by (namespace, pod) (
                 kube_pod_status_phase{
-                  job="kube-state-metrics", namespace="default",
+                  job="kube-state-metrics", namespace="dev",
                   phase=~"Pending|Running|Unknown"
                 }
               ) == 1
@@ -48,7 +48,7 @@ spec:
             max by (namespace, horizontalpodautoscaler, deployment) (
               label_replace(
                 kube_horizontalpodautoscaler_info{
-                  job="kube-state-metrics", namespace="default",
+                  job="kube-state-metrics", namespace="dev",
                   scaletargetref_kind="Deployment"
                 },
                 "deployment", "$1", "scaletargetref_name", "(.+)"
@@ -60,7 +60,7 @@ spec:
             (
               max by (namespace, deployment) (
                 kube_deployment_status_replicas_unavailable{
-                  job="kube-state-metrics", namespace="default"
+                  job="kube-state-metrics", namespace="dev"
                 }
               ) > 0
             )
@@ -80,7 +80,7 @@ spec:
             (
               max by (namespace, pod, container) (
                 increase(kube_pod_container_status_restarts_total{
-                  job="kube-state-metrics", namespace="default"
+                  job="kube-state-metrics", namespace="dev"
                 }[15m])
               ) > 3
             )
