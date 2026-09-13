@@ -1,0 +1,24 @@
+# Apply just this key to the existing Argo CD ConfigMap. Application health is
+# not built in; without it, parent sync waves do not wait for child controllers.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-40"
+    argocd.argoproj.io/sync-options: ServerSideApply=true,DisableClientSideApplyMigration=true
+data:
+  resource.customizations.health.argoproj.io_Application: |
+    local dependencies = { ["istio-base"] = true, ["istiod"] = true, ["argo-rollouts"] = true }
+    if not dependencies[obj.metadata.name] then
+      return { status = "Healthy", message = "No controller dependency gate" }
+    end
+    local hs = { status = "Progressing", message = "Waiting for controller application sync and health" }
+    if obj.status ~= nil and obj.status.sync ~= nil and obj.status.sync.status == "Synced" then
+      if obj.status.health ~= nil then
+        hs.status = obj.status.health.status
+        hs.message = obj.status.health.message or ""
+      end
+    end
+    return hs

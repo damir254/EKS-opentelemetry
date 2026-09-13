@@ -1,0 +1,118 @@
+{{- $payment := .Values.services.payment }}
+{{- if and $payment.enabled ($payment.rollout | default dict).enabled }}
+{{- $context := dict "root" . "name" "payment" "service" $payment }}
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: payment
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: payment
+spec:
+  hosts: [payment]
+  gateways: [mesh]
+  exportTo: ["."]
+  http:
+    - name: primary
+      route:
+        - destination:
+            host: payment
+            port:
+              number: {{ $payment.service.port }}
+            subset: stable
+          weight: 100
+        - destination:
+            host: payment
+            port:
+              number: {{ $payment.service.port }}
+            subset: canary
+          weight: 0
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: payment
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: payment
+spec:
+  host: payment
+  exportTo: ["."]
+  subsets:
+    # Rollouts adds rollouts-pod-template-hash to each subset at runtime.
+    - name: stable
+      labels:
+        {{- include "otel-demo.serviceSelectorLabels" $context | nindent 8 }}
+    - name: canary
+      labels:
+        {{- include "otel-demo.serviceSelectorLabels" $context | nindent 8 }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: payment-red
+  annotations:
+    # This CRD becomes available after istiod is healthy. Gate workload creation
+    # even when an existing otel-demo Application auto-syncs before its parent.
+    argocd.argoproj.io/sync-wave: "-1"
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: payment
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    # A single false successCondition counts as a failure, including absent/NaN
+    # data. One transient failure is tolerated; two abort this inline analysis.
+    - name: canary-traffic
+      interval: 30s
+      count: 3
+      failureLimit: 1
+      successCondition: len(result) == 1 && result[0] >= 0.01
+      provider:
+        prometheus:
+          address: {{ .Values.paymentAnalysis.prometheusAddress | quote }}
+          query: |
+            sum(rate(otel_demo_span_metrics_calls_total{
+              service_name="payment", span_kind="SPAN_KIND_SERVER",
+              rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}"
+            }[2m])) or vector(0)
+    - name: canary-error-rate
+      interval: 30s
+      count: 3
+      failureLimit: 1
+      successCondition: len(result) == 1 && result[0] <= 0.05
+      provider:
+        prometheus:
+          address: {{ .Values.paymentAnalysis.prometheusAddress | quote }}
+          query: |
+            (sum(rate(otel_demo_span_metrics_calls_total{
+              service_name="payment", span_kind="SPAN_KIND_SERVER",
+              rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}",
+              status_code="STATUS_CODE_ERROR"
+            }[2m])) or vector(0))
+            /
+            clamp_min(sum(rate(otel_demo_span_metrics_calls_total{
+              service_name="payment", span_kind="SPAN_KIND_SERVER",
+              rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}"
+            }[2m])) or vector(0), 0.001)
+    - name: canary-p95-latency
+      interval: 30s
+      count: 3
+      failureLimit: 1
+      successCondition: len(result) == 1 && !isNaN(result[0]) && result[0] <= 1
+      provider:
+        prometheus:
+          address: {{ .Values.paymentAnalysis.prometheusAddress | quote }}
+          query: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(otel_demo_span_metrics_duration_seconds_bucket{
+                service_name="payment", span_kind="SPAN_KIND_SERVER",
+                rollout_pod_template_hash="{{ "{{args.canary-hash}}" }}"
+              }[2m]))
+            ) or vector(1e9)
+{{- end }}

@@ -1,0 +1,30 @@
+# Classic sidecars only: no gateway, ambient components, or Istio CNI.
+autoscaleEnabled: false
+replicaCount: 1
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+cni:
+  enabled: false
+env:
+  ENABLE_NATIVE_SIDECARS: "false"
+sidecarInjectorWebhook:
+  enableNamespacesByDefault: false
+meshConfig:
+  enablePrometheusMerge: false
+  defaultConfig:
+    holdApplicationUntilProxyStarts: true
+    concurrency: 1
+global:
+  proxy:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 128Mi

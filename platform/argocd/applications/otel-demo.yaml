@@ -3,6 +3,8 @@ kind: Application
 metadata:
   name: otel-demo
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
 spec:
   project: default
   source:
@@ -17,6 +19,24 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+    - group: argoproj.io
+      kind: Rollout
+      name: payment
+      namespace: default
+      jsonPointers:
+        - /spec/replicas
+    - group: networking.istio.io
+      kind: VirtualService
+      name: payment
+      namespace: default
+      jqPathExpressions:
+        - '.spec.http[] | select(.name == "primary") | .route[].weight'
+    - group: networking.istio.io
+      kind: DestinationRule
+      name: payment
+      namespace: default
+      jqPathExpressions:
+        - '.spec.subsets[] | select(.name == "stable" or .name == "canary") | .labels["rollouts-pod-template-hash"]'
   syncPolicy:
     automated:
       prune: true
@@ -31,3 +51,6 @@ spec:
     syncOptions:
       - RespectIgnoreDifferences=true
       - SkipDryRunOnMissingResource=true
+      - ApplyOutOfSyncOnly=true
+      # Keep the old Deployment until its replacement Rollout is healthy.
+      - PruneLast=true

@@ -23,6 +23,11 @@ connectors:
         buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
     # Span names can contain arbitrary paths/IDs. Keep collector.instance.id.
     exclude_dimensions: [span.name]
+    # One value per ReplicaSet/image, not per pod or request. The Prometheus
+    # exporter's underscore translation retains these on both calls and buckets.
+    dimensions:
+      - name: rollout.pod_template_hash
+      - name: service.version
     aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
     metrics_flush_interval: 15s
     metrics_expiration: 15m

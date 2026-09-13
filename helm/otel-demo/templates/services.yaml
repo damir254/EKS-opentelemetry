@@ -6,7 +6,7 @@
 
 {{ include "otel-demo.serviceAccount" $context }}
 ---
-{{ include "otel-demo.serviceDeployment" $context }}
+{{ include "otel-demo.serviceWorkload" $context }}
 ---
 {{ include "otel-demo.serviceService" $context }}
 ---
