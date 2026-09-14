@@ -15,7 +15,7 @@ spec:
       app.kubernetes.io/instance: otel-demo
       app.kubernetes.io/component: otel-collector
   endpoints:
-    - port: prometheus
+    - port: http-metrics
       path: /metrics
       interval: 30s
       scrapeTimeout: 10s

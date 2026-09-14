@@ -99,6 +99,8 @@ defaultEnv:
   OTEL_RESOURCE_ATTRIBUTES:
     value: "service.version=1.0.0"
 services:
+  # portName also names the container port. Keep targetPort aligned with it.
+  # These names describe inbound traffic, independently of OTLP export protocol.
   # Optional per-service topologySpread: {enabled: true, zone: true, hostname: true}.
   # Omitted flags default to false. Enable for replicated stateless services.
   # Selectors come from pod labels and apply at any replica count, including HPA scaling.
@@ -383,8 +385,8 @@ services:
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: http
+      portName: http
       protocol: TCP
     containerPort: 8080
     selectorLabels:
@@ -462,8 +464,8 @@ services:
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: http
+      portName: http
       protocol: TCP
     containerPort: 8080
     selectorLabels:
@@ -615,11 +617,12 @@ services:
       create: true
       name: accounting
       automount: false
+    # Kafka consumer with no inbound listener; preserve the existing placeholder.
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: tcp-unused
+      portName: tcp-unused
       protocol: TCP
     containerPort: 8080
     selectorLabels:
@@ -658,11 +661,12 @@ services:
       create: true
       name: fraud-detection
       automount: false
+    # Kafka consumer with no inbound listener; preserve the existing placeholder.
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: tcp-unused
+      portName: tcp-unused
       protocol: TCP
     containerPort: 8080
     selectorLabels:
@@ -707,8 +711,8 @@ services:
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: http
+      portName: http
       protocol: TCP
     containerPort: 8080
     selectorLabels:
@@ -783,8 +787,8 @@ services:
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: http
+      portName: http
       protocol: TCP
     containerPort: 8080
     selectorLabels:
@@ -869,8 +873,8 @@ services:
     service:
       type: ClusterIP
       port: 8081
-      targetPort: grpc
-      portName: grpc
+      targetPort: http
+      portName: http
       protocol: TCP
     podAnnotations:
       io.opentelemetry.discovery.metrics/enabled: "true"
@@ -904,8 +908,8 @@ services:
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: http
+      portName: http
       protocol: TCP
     containerPort: 8080
     selectorLabels:
@@ -941,11 +945,12 @@ services:
       create: true
       name: load-generator
       automount: false
+    # No listener is configured on 8080; preserve the existing placeholder.
     service:
       type: ClusterIP
       port: 8080
-      targetPort: grpc
-      portName: grpc
+      targetPort: tcp-unused
+      portName: tcp-unused
       protocol: TCP
     containerPort: 8080
     selectorLabels:

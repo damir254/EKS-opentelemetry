@@ -38,22 +38,22 @@ spec:
           imagePullPolicy: {{ .Values.otelCollector.image.pullPolicy }}
           args: ["--config=/conf/otel-collector-config.yaml"]
           ports:
-            - name: otlp-grpc
+            - name: grpc
               containerPort: 4317
-            - name: otlp-http
+            - name: http
               containerPort: 4318
-            - name: health
+            - name: http-health
               containerPort: 13133
-            - name: prometheus
+            - name: http-metrics
               containerPort: 8889
           readinessProbe:
             httpGet:
               path: /
-              port: health
+              port: http-health
           livenessProbe:
             httpGet:
               path: /
-              port: health
+              port: http-health
           resources:
             {{- toYaml .Values.otelCollector.resources | nindent 12 }}
           volumeMounts:
@@ -78,13 +78,13 @@ spec:
     {{- include "otel-demo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: otel-collector
   ports:
-    - name: otlp-grpc
+    - name: grpc
       port: 4317
-      targetPort: otlp-grpc
-    - name: otlp-http
+      targetPort: grpc
+    - name: http
       port: 4318
-      targetPort: otlp-http
-    - name: prometheus
+      targetPort: http
+    - name: http-metrics
       port: 8889
-      targetPort: prometheus
+      targetPort: http-metrics
 {{- end }}

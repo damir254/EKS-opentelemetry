@@ -35,7 +35,7 @@ spec:
           imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
 
           ports:
-            - name: postgres
+            - name: tcp-postgres
               containerPort: {{ .Values.postgres.port }}
               protocol: TCP
 
@@ -86,8 +86,8 @@ spec:
     {{- include "otel-demo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
   ports:
-    - name: postgres
+    - name: tcp-postgres
       port: {{ .Values.postgres.port }}
-      targetPort: postgres
+      targetPort: tcp-postgres
       protocol: TCP
 {{- end }}

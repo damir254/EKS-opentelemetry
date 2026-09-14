@@ -52,9 +52,9 @@ spec:
             - name: KAFKA_HEAP_OPTS
               value: -Xms256M -Xmx256M
           ports:
-            - name: plaintext
+            - name: tcp-kafka
               containerPort: 9092
-            - name: controller
+            - name: tcp-controller
               containerPort: 9093
           
           resources:
@@ -73,10 +73,10 @@ spec:
     {{- include "otel-demo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: kafka
   ports:
-    - name: plaintext
+    - name: tcp-kafka
       port: 9092
-      targetPort: plaintext
-    - name: controller
+      targetPort: tcp-kafka
+    - name: tcp-controller
       port: 9093
-      targetPort: controller
+      targetPort: tcp-controller
 {{- end }}

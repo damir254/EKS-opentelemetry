@@ -58,16 +58,16 @@ spec:
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: http/protobuf
           ports:
-            - name: rpc
+            - name: grpc
               containerPort: 8013
-            - name: ofrep
+            - name: http
               containerPort: 8016
           readinessProbe:
             tcpSocket:
-              port: rpc
+              port: grpc
           livenessProbe:
             tcpSocket:
-              port: rpc
+              port: grpc
           resources:
             {{- toYaml .Values.flagd.resources | nindent 12 }}
           volumeMounts:
@@ -92,10 +92,11 @@ spec:
     {{- include "otel-demo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: flagd
   ports:
-    - name: rpc
+    # Evaluation supports gRPC and HTTP/JSON through Connect on the same port.
+    - name: grpc
       port: 8013
-      targetPort: rpc
-    - name: ofrep
+      targetPort: grpc
+    - name: http
       port: 8016
-      targetPort: ofrep
+      targetPort: http
 {{- end }}

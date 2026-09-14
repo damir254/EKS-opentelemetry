@@ -23,7 +23,7 @@ spec:
           image: "{{ .Values.valkey.image.repository }}:{{ .Values.valkey.image.tag }}"
           imagePullPolicy: {{ .Values.valkey.image.pullPolicy }}
           ports:
-            - name: valkey
+            - name: tcp-valkey
               containerPort: 6379
           readinessProbe:
             exec:
@@ -47,7 +47,7 @@ spec:
     {{- include "otel-demo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: valkey
   ports:
-    - name: valkey
+    - name: tcp-valkey
       port: 6379
-      targetPort: valkey
+      targetPort: tcp-valkey
 {{- end }}
