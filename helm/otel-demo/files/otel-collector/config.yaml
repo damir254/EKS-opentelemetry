@@ -37,6 +37,9 @@ connectors:
 exporters:
   debug:
     verbosity: basic
+  otlphttp/loki:
+    # Native Loki OTLP ingestion; the exporter appends /v1/logs.
+    endpoint: http://loki.monitoring.svc.cluster.local:3100/otlp
   prometheus:
     endpoint: 0.0.0.0:8889
     translation_strategy: UnderscoreEscapingWithSuffixes
@@ -60,4 +63,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [debug]
+      exporters: [otlphttp/loki]

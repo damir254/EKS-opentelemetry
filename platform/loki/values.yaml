@@ -1,0 +1,89 @@
+# grafana-community/loki 18.13.0 (Loki 3.7.7); development/portfolio only.
+deploymentMode: Monolithic
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2024-04-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  storage_config:
+    # Remove the chart's unused legacy shipper; this installation uses TSDB.
+    boltdb_shipper: null
+  limits_config:
+    allow_structured_metadata: true
+    retention_period: 72h
+    # Keep native OTLP defaults, with Loki's recommended cardinality reduction.
+    # All other non-indexed attributes (including trace IDs) remain metadata.
+    otlp_config:
+      resource_attributes:
+        attributes_config:
+          - action: structured_metadata
+            attributes: [k8s.pod.name, service.instance.id]
+  compactor:
+    working_directory: /var/loki/compactor
+    retention_enabled: true
+    delete_request_store: filesystem
+    retention_delete_worker_count: 2
+  ingester:
+    wal:
+      # Loki's 4GB default replay ceiling exceeds this pod's memory limit.
+      replay_memory_ceiling: 128MB
+  querier:
+    max_concurrent: 2
+
+# The current chart still configures Monolithic mode under singleBinary.
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: true
+    size: 5Gi
+    # Omit storageClass to use the cluster default.
+    enableStatefulSetAutoDeletePVC: true
+    whenDeleted: Delete
+    whenScaled: Delete
+
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+gateway:
+  enabled: false
+lokiCanary:
+  enabled: false
+# The chart's Helm test requires Canary.
+test:
+  enabled: false
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+memcached:
+  enabled: false
+minio:
+  enabled: false
+ruler:
+  enabled: false
+sidecar:
+  rules:
+    enabled: false

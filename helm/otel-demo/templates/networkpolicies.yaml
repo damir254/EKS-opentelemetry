@@ -133,6 +133,34 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: {{ .Release.Name }}-allow-loki
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "otel-demo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: otel-collector
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          # Selectors rendered by grafana-community/loki 18.13.0, release loki.
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+              app.kubernetes.io/instance: loki
+              app.kubernetes.io/component: single-binary
+      ports:
+        - protocol: TCP
+          port: 3100
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: {{ .Release.Name }}-allow-prometheus
   namespace: {{ .Release.Namespace }}
   labels:

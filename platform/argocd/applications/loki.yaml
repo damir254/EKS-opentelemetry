@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  annotations:
+    # Monitoring is wave 0; the demo is wave 10.
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  project: default
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: 18.13.0
+      helm:
+        releaseName: loki
+        valueFiles:
+          - $values/platform/loki/values.yaml
+    - repoURL: https://github.com/damir254/EKS-opentelemetry.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+    syncOptions:
+      # Reuse monitoring; child Apps sync independently, so wave order alone
+      # does not guarantee the namespace exists during initial bootstrap.
+      - CreateNamespace=true

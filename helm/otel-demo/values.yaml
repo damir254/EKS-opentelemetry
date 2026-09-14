@@ -66,7 +66,7 @@ networkPolicy:
       frontend-proxy: [8080]
       flagd: [8016] # k6 entrypoint/script use OFREP, not FLAGD_PORT's RPC port
       otel-collector: [4318]
-    otel-collector: {} # debug output and locally scraped metrics only
+    otel-collector: {} # Loki egress is a separate cross-namespace policy.
     payment:
       flagd: [8013]
       otel-collector: [4317]

@@ -67,7 +67,10 @@ output "github_oidc_subject" {
 }
 
 output "pod_identity_role_arns" {
-  value = merge(module.iam.pod_identity_role_arns, { vpc_cni = module.eks.vpc_cni_role_arn })
+  value = merge(module.iam.pod_identity_role_arns, {
+    vpc_cni = module.eks.vpc_cni_role_arn
+    ebs_csi = module.eks.ebs_csi_role_arn
+  })
 }
 
 output "update_kubeconfig_command" {

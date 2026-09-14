@@ -12,7 +12,8 @@ data:
   resource.customizations.health.argoproj.io_Application: |
     local dependencies = {
       ["istio-base"] = true, ["istiod"] = true, ["argo-rollouts"] = true,
-      ["cert-manager"] = true, ["aws-load-balancer-controller"] = true
+      ["cert-manager"] = true, ["aws-load-balancer-controller"] = true,
+      ["storage"] = true
     }
     if not dependencies[obj.metadata.name] then
       return { status = "Healthy", message = "No controller dependency gate" }

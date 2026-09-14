@@ -99,8 +99,8 @@ variable "addon_versions" {
   default     = {}
 
   validation {
-    condition     = alltrue([for name in keys(var.addon_versions) : contains(["vpc-cni", "coredns", "kube-proxy", "eks-pod-identity-agent", "metrics-server"], name)])
-    error_message = "Only the five managed project add-on names are accepted."
+    condition     = alltrue([for name in keys(var.addon_versions) : contains(["vpc-cni", "coredns", "kube-proxy", "eks-pod-identity-agent", "metrics-server", "aws-ebs-csi-driver"], name)])
+    error_message = "Only the six managed project add-on names are accepted."
   }
 }
 

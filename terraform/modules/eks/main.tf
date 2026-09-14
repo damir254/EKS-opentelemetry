@@ -4,7 +4,7 @@ data "aws_region" "current" {}
 
 locals {
   cluster_arn = "arn:${data.aws_partition.current.partition}:eks:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:cluster/${var.cluster_name}"
-  addon_names = toset(["eks-pod-identity-agent", "vpc-cni", "kube-proxy", "coredns", "metrics-server"])
+  addon_names = toset(["eks-pod-identity-agent", "vpc-cni", "kube-proxy", "coredns", "metrics-server", "aws-ebs-csi-driver"])
   addon_versions = {
     for name in local.addon_names : name => lookup(var.addon_versions, name, data.aws_eks_addon_version.this[name].version)
   }
