@@ -7,7 +7,7 @@ kubernetes_version = "1.36"
 
 single_nat_gateway  = false
 node_instance_types = ["c7i-flex.large"]
-node_desired_size   = 2
+node_desired_size   = 3
 node_min_size       = 2
 node_max_size       = 4
-node_disk_size      = 50
+node_disk_size      = 30
