@@ -1,59 +1,58 @@
-# EKS OpenTelemetry demo
+# OpenTelemetry Demo on Amazon EKS
 
-## Application logging
+A portfolio project that runs the OpenTelemetry demo shop on AWS Kubernetes.
+It demonstrates infrastructure as code, automated delivery, gradual releases,
+and application monitoring in one environment.
 
-Application OTLP logs → the existing OpenTelemetry Collector → Loki → Grafana.
-Argo CD manages Loki in the existing `monitoring` namespace using the
-[Grafana Community chart](https://github.com/grafana-community/helm-charts/tree/main/charts/loki),
-pinned to **18.13.0** (Loki **3.7.7**).
+The shop supports product browsing, carts, and checkout. Payment (Node.js),
+Product Catalog (Go), and Recommendation (Python) are maintained here; the other
+application services use upstream demo images.
 
-Loki runs as one lightweight monolithic replica with filesystem-backed TSDB v13
-storage, a **5Gi PVC**, and **72-hour retention** via its built-in compactor.
-Requests are **100m CPU / 256Mi memory**, with a **512Mi memory limit** and no CPU
-limit. The ClusterIP endpoint is `http://loki.monitoring.svc.cluster.local:3100`;
-the Collector uses `/otlp` for native OTLP HTTP ingestion. Only its logs pipeline
-switches from `debug` to `otlphttp/loki`; metrics and traces keep their existing
-pipelines. A narrow NetworkPolicy permits Collector egress to Loki on TCP 3100.
+```text
+Customer → AWS Application Load Balancer → Storefront → Application services
 
-The existing Grafana automatically provisions an additional **Loki** datasource;
-Prometheus stays the default. In **Grafana Explore**, select **Loki** and query:
+Code → GitHub Actions → ECR → Image tag update in Git → Argo CD → EKS
 
-```logql
-{service_name="checkout"}
+Application telemetry → OpenTelemetry Collector → Prometheus / Loki → Grafana
 ```
 
-```logql
-{service_name="payment"}
-```
+- **Infrastructure:** Terraform creates the VPC, standard EKS managed node
+  groups in private subnets across two availability zones, ECR registries,
+  IAM roles, and managed add-ons.
+- **Delivery:** GitHub Actions tests the three maintained services, scans images
+  with Trivy, and publishes signed images tagged with the commit SHA. Argo CD
+  Image Updater updates Git; Argo CD synchronizes the application and platform
+  through an App-of-Apps setup.
+- **Canary releases:** Argo Rollouts and Istio gradually shift Payment traffic
+  to new versions. Prometheus checks request volume, errors, and latency;
+  failed analysis aborts the rollout.
+- **Security:** AWS workloads use EKS Pod Identity; CI uses GitHub OIDC.
+  External Secrets reads AWS Secrets Manager. Default-deny NetworkPolicies
+  restrict communication between workloads.
+- **Observability:** Grafana provides Application RED (request rate, errors,
+  duration) and Platform Health dashboards. Application logs reach Loki through
+  the Collector. In Grafana Explore, query `{service_name="checkout"}` or
+  `{service_name="payment"}`.
+- **Storage:** The EBS CSI managed add-on provisions encrypted volumes using the
+  default gp3 StorageClass. Loki runs one monolithic replica with a 5Gi volume
+  and 72-hour retention.
 
-Native ingestion normalizes `service.name` to `service_name`. Expand log entries
-to inspect timestamps, log bodies, severity, and the OTel/Kubernetes attributes
-actually supplied by applications. Following [Loki's OTLP guidance](https://grafana.com/docs/loki/latest/send-data/otel/),
-pod names and service instance IDs remain structured metadata; other native
-mappings are preserved. No trace IDs, pod UIDs, request IDs, or rollout hashes are
-added as index labels. This collects application OTLP logs, not container stdout.
+| Path | Purpose |
+| --- | --- |
+| [terraform/](terraform/) | AWS infrastructure and identities |
+| [helm/otel-demo/](helm/otel-demo/) | Application workloads in the `dev` namespace |
+| [platform/](platform/) | GitOps, controllers, storage, and the `monitoring` stack |
+| [src/](src/) | The three maintained application services |
+| [.github/workflows/](.github/workflows/) | Tests, image scanning, builds, and publishing |
 
-This is intentionally a development/portfolio deployment, without HA or backups.
-The PVC is deleted when the Loki StatefulSet is deleted or scaled down;
-underlying PV cleanup follows the StorageClass reclaim policy.
-Retention is asynchronous, and 5Gi can fill before
-72 hours under heavy traffic. Logs queued only in Collector memory can be lost
-during restarts or prolonged Loki outages. A production evolution would use
-durable object storage such as S3 and an HA/scalable deployment where required.
+To recreate it, configure your AWS and repository settings,
+[bootstrap the Terraform backend](terraform/bootstrap/README.md), and provision
+AWS resources. Populate secrets and initial application images, then install
+Argo CD and register the
+[root Application](platform/argocd/root-application.yaml).
+Terraform owns AWS resources; Argo CD owns Kubernetes configuration.
 
-## Persistent storage
-
-Terraform installs the Amazon EBS CSI Driver as an EKS managed add-on, using the
-existing Kubernetes-compatible version resolver and a dedicated EKS Pod Identity
-role for `kube-system/ebs-csi-controller-sa`. Argo CD installs the default **gp3**
-StorageClass before Loki. It dynamically provisions encrypted EBS volumes through
-`ebs.csi.aws.com`, using the standard AWS-managed EBS key. `WaitForFirstConsumer`
-selects the volume's availability zone after pod scheduling; expansion is enabled
-and `reclaimPolicy: Delete` removes the volume when its PVC is deleted. Delete
-workload PVCs while the CSI driver is still running, before destroying the cluster.
-Loki's 5Gi PVC inherits this platform default without specifying a StorageClass.
-
-The existing `gp2` class is left untouched. If it is also marked default,
-Kubernetes chooses the most recently created default class (`gp3`) for new PVCs.
-An existing PVC already assigned `gp2` will not switch classes automatically;
-this change does not migrate existing volumes.
+This is a development environment: traces feed service metrics but have no
+storage backend, and Loki has no redundancy or backups. Delete workload PVCs
+while the EBS CSI driver is running before destroying the cluster. Production
+would need durable log object storage and appropriate availability guarantees.
