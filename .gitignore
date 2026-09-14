@@ -4,15 +4,16 @@
 *.iml
 *.ipr
 *.iws
-*.pyc
-.swp
+*.swp
+*.swo
 .DS_Store
+Thumbs.db
 \#*\#
 .classpath
 .project
 .settings
 .vs/
-.vscode
+.vscode/
 
 # AI Agents
 .claude/
@@ -22,45 +23,37 @@
 
 # Build artifacts
 bin/
-obj/
-.gradle/
-.nb-gradle
-.nb-gradle-properties
 build/
 node_modules/
-coverage
-.next/
 out/
-build
-next-env.d.ts
 vendor/
-composer.lock
-.venv
-.dockerhub.env
-.ghcr.env
-*.apk
-/.lycheecache
+.venv/
+__pycache__/
+*.py[cod]
 
-# Ignore copied/generated protobuf files
-/src/accounting/src/protos/
-/src/cart/src/protos/
-/src/fraud-detection/src/main/proto
+# Test output and logs
+coverage/
+.coverage*
+.pytest_cache/
+*.log
+npm-debug.log*
+
+# Local environment and credentials; keep shareable templates tracked
+.env
+.env.*
+*.env
+!.env.example
+*.pem
+*.key
+
+# Protobuf copied locally for payment development
 /src/payment/demo.proto
-/src/shipping/proto/
-/src/currency/proto
-/src/frontend/pb
 
-# Otel Demo specific
+# Local Compose overrides
 docker-compose.override.yml
 
-src/frontend/cypress/videos
-src/frontend/cypress/screenshots
-src/shipping/target/
-
-!src/currency/build
-
-
-**/.terraform/*
+# Terraform local data; keep provider locks and shared terraform.tfvars tracked
+.terraform/
 *.tfstate
 *.tfstate.*
 *.tfplan
@@ -70,14 +63,6 @@ src/shipping/target/
 backend.hcl
 *.tfvars.json
 terraform-outputs.json
-*.pem
-*.key
 
-crash.log
-crash.*.log
-
+# Rendered Helm output
 rendered.yaml
-
-.vscode/
-.idea/
-.DS_Store

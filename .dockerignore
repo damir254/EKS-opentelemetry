@@ -1,33 +1,58 @@
-
-
+# Shared by all service and protobuf builds using the repository root as context
+# Repository metadata, infrastructure, and documentation
 .github
 .git
-.cache
+.gitignore
+.dockerignore
 terraform
 helm
 platform
+docs
+**/README.md
+**/Dockerfile
+**/docker-compose*.yml
+**/docker-compose*.yaml
+
+# Local environment and credentials
+**/.env
+**/.env.*
+**/*.env
+**/*.pem
+**/*.key
+
+# IDEs, agents, and local files
+**/.vscode
+**/.idea
+**/.vs
+**/.claude
+**/.codex
+**/.cursor
+**/.cursorrules
+**/.DS_Store
+**/Thumbs.db
+**/*~
+**/*.swp
+**/*.swo
+
+# Dependencies, build artifacts, and caches
+**/.cache
 **/node_modules
 **/.venv
 **/__pycache__
+**/*.py[cod]
+**/bin
+**/build
+**/out
+**/vendor
+
+# Tests, coverage, and logs
+**/test
+**/tests
+**/__tests__
+**/*.test.js
+**/*_test.go
 **/.pytest_cache
 **/coverage
-docs
-internal
-src/*/README.md
-src/*/Dockerfile
-src/*/*/Dockerfile
-
-###################################
-# currency
-./src/currency/client.js
-./src/currency/node_modules/
-###################################
-
-###################################
-# frontend
-./src/frontend/node_modules/
-
-###################################
-# shipping
-./src/shipping/target
-###################################
+**/.coverage*
+**/*.log
+**/npm-debug.log*
