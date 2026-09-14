@@ -1,7 +1,15 @@
 # syntax=docker/dockerfile:1.8
 
 
-FROM python:3.13-slim-bookworm@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e AS deps
+FROM python:3.13-slim-bookworm@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e AS base
+
+# DLA-4772-1 fixes PCRE2 vulnerabilities in the pinned upstream image.
+RUN apt-get update && \
+    apt-get install --yes --no-install-recommends --only-upgrade \
+      libpcre2-8-0=10.42-1+deb12u1 && \
+    rm -rf /var/lib/apt/lists/*
+
+FROM base AS deps
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -24,7 +32,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       -r requirements.txt
 
 
-FROM python:3.13-slim-bookworm@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e
+FROM base AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
