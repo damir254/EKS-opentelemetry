@@ -1,7 +1,7 @@
 # Populate from Terraform outputs with scripts/configure-aws.py before bootstrap.
 clusterName: otel-demo-eks
 region: eu-central-1
-vpcId: vpc-09b2af074af619666
+vpcId: vpc-034798a528b2329a9
 
 # The chart creates the internal CA/serving Certificates and CA-injection
 # annotations. cert-manager owns the TLS Secret and renews the serving cert.
