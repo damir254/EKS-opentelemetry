@@ -109,7 +109,7 @@ services:
     replicaCount: 1
     image:
       repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/recommendation
-      tag: "e63cbdbf0e2ac9a64960900d63711fc85cee8584"
+      tag: "2921856b440ec82f67d67f9e6dd5a19f32e4656f"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true
