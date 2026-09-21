@@ -8,16 +8,7 @@ The OpenTelemetry demo provides a distributed workload for exercising the
 platform under traffic. Terraform manages AWS infrastructure; Argo CD keeps
 Kubernetes controllers, monitoring, and application workloads in sync with Git.
 
-```mermaid
-flowchart LR
-    Terraform -->|provisions| EKS["Amazon EKS<br/>Managed nodes in private subnets"]
-    Terraform -->|provisions| ECR[Amazon ECR]
-    CI["GitHub Actions<br/>Test, build, scan, publish, sign"] --> ECR
-    ECR --> Updater[Argo CD Image Updater]
-    Updater -->|commits image tags| Git["Git repository<br/>Helm values and manifests"]
-    Git --> ArgoCD[Argo CD]
-    ArgoCD -->|reconciles| EKS
-```
+![AWS architecture showing Terraform provisioning, GitOps delivery to EKS in private subnets across two availability zones, and the OpenTelemetry monitoring stack](docs/architecture.png)
 
 - **AWS infrastructure:** Terraform modules provision a VPC with public and
   private subnets across two availability zones, NAT gateways, an EKS managed
