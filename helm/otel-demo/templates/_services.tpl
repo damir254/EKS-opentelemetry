@@ -1,5 +1,3 @@
-{{/* Render the resources for a values-defined demo service. */}}
-
 {{- define "otel-demo.serviceName" -}}
 {{- .name | trunc 63 | trimSuffix "-" -}}
 {{- end }}

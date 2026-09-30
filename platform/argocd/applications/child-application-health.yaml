@@ -1,5 +1,5 @@
-# Apply just this key to the existing Argo CD ConfigMap. Application health is
-# not built in; without it, parent sync waves do not wait for child controllers.
+# Application health is not built in; without it, parent sync waves do not wait
+# for child controllers.
 apiVersion: v1
 kind: ConfigMap
 metadata:

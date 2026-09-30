@@ -1,8 +1,7 @@
 terraform {
   required_version = ">= 1.10, < 2.0"
 
-  # This independent bootstrap deliberately keeps local state. Back it up
-  # securely; it must not depend on the bucket that it creates.
+  # Bootstrap uses local state to avoid depending on the bucket it creates.
   required_providers {
     aws = {
       source  = "hashicorp/aws"

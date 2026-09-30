@@ -55,7 +55,7 @@ singleBinary:
   persistence:
     enabled: true
     size: 5Gi
-    # Omit storageClass to use the cluster default.
+    # Uses the cluster's default storage class.
     enableStatefulSetAutoDeletePVC: true
     whenDeleted: Delete
     whenScaled: Delete

@@ -1,5 +1,3 @@
-# Shared, non-secret environment defaults. Put account-specific settings in the
-# ignored local.auto.tfvars using local.auto.tfvars.example as the starting point.
 region             = "eu-central-1"
 cluster_name       = "otel-demo-eks"
 availability_zones = ["eu-central-1a", "eu-central-1b"]

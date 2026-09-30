@@ -1,13 +1,10 @@
-# Configure the ECR account using scripts/configure-aws.py. Build the three
-# custom images in ECR and set their initial full SHA tags before the first sync.
 networkPolicy:
   enabled: true
   # Verified against module.vpc.cidr_block in terraform/main.tf. ALB IP targets
   # reach frontend-proxy from VPC addresses; this is ingress on TCP 8080 only.
   albSourceCidr: 10.0.0.0/16
   # Directed TCP connections: source component -> destination component -> ports.
-  # Each edge renders BOTH source egress and destination ingress. Keep this map
-  # aligned with env, container ports and dependency templates below.
+  # Each edge renders both source egress and destination ingress.
   # Upstream image config inspected at 604c4612c4339e5bd4fe11efa33d254f29ddfd44
   # (the k6 implementation configured here; latest-* image tags are mutable).
   connections:
@@ -101,9 +98,8 @@ defaultEnv:
 services:
   # portName also names the container port. Keep targetPort aligned with it.
   # These names describe inbound traffic, independently of OTLP export protocol.
-  # Optional per-service topologySpread: {enabled: true, zone: true, hostname: true}.
-  # Omitted flags default to false. Enable for replicated stateless services.
-  # Selectors come from pod labels and apply at any replica count, including HPA scaling.
+  # Omitted topologySpread flags default to false; selectors use pod labels
+  # at any replica count, including HPA scaling.
   recommendation:
     enabled: true
     replicaCount: 1
