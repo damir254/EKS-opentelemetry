@@ -34,8 +34,12 @@ output "nat_gateway_ids" {
   value = module.vpc.nat_gateway_ids
 }
 
-output "node_group" {
-  value = module.eks.node_group
+output "auto_mode_node_pools" {
+  value = module.eks.auto_mode_node_pools
+}
+
+output "node_role_arn" {
+  value = module.eks.node_role_arn
 }
 
 output "addon_versions" {
@@ -67,10 +71,7 @@ output "github_oidc_subject" {
 }
 
 output "pod_identity_role_arns" {
-  value = merge(module.iam.pod_identity_role_arns, {
-    vpc_cni = module.eks.vpc_cni_role_arn
-    ebs_csi = module.eks.ebs_csi_role_arn
-  })
+  value = module.iam.pod_identity_role_arns
 }
 
 output "update_kubeconfig_command" {

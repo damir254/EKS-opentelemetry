@@ -1,0 +1,72 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  ad:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-ad
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: ad
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: grpc
+      portName: grpc
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    startupProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      AD_PORT:
+        value: "8080"
+      AD_PROMETHEUS_PORT:
+        value: "9465"
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://otel-collector:4318"
+      OTEL_LOGS_EXPORTER:
+        value: otlp
+      OTEL_EXPERIMENTAL_SDK_TELEMETRY_VERSION:
+        value: latest
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=medium
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    securityContext: {}

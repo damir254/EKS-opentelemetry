@@ -1,0 +1,104 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  checkout:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    istio:
+      enabled: true
+      # wait-for-kafka runs before the classic sidecar starts; Kafka stays direct.
+      excludeOutboundPorts: "9092"
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-checkout
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: checkout
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: grpc
+      portName: grpc
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    startupProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      CHECKOUT_PORT:
+        value: "8080"
+      CART_ADDR:
+        value: cart:8080
+      CURRENCY_ADDR:
+        value: currency:8080
+      EMAIL_ADDR:
+        value: http://email:8080
+      PAYMENT_ADDR:
+        value: payment:8080
+      PRODUCT_CATALOG_ADDR:
+        value: "product-catalog:8080"
+      SHIPPING_ADDR:
+        value: http://shipping:8080
+      KAFKA_ADDR:
+        value: kafka:9092
+      KAFKA_TOPIC:
+        value: orders
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: http://$(OTEL_COLLECTOR_NAME):4318
+      OTEL_EXPORTER_OTLP_PROTOCOL:
+        value: http/protobuf
+      GOMEMLIMIT:
+        value: 16MiB
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=critical
+    resources:
+      requests:
+        cpu: 25m
+        memory: 20Mi
+      limits:
+        memory: 20Mi
+    initContainers:
+    - name: wait-for-kafka
+      image: busybox:latest
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi
+      command: ["sh", "-c", "until nc -z -v -w30 kafka 9092; do echo waiting for kafka; sleep 2; done;"]
+    securityContext:
+      readOnlyRootFilesystem: true
+    mountedEmptyDirs:
+    - name: tmp
+      mountPath: /tmp

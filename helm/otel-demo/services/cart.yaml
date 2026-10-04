@@ -1,0 +1,82 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  cart:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-cart
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: cart
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: grpc
+      portName: grpc
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    podSecurityContext: {}
+    # The gRPC readiness check can fail via a feature flag; liveness only checks the local listener.
+    startupProbe:
+      tcpSocket:
+        port: grpc
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: grpc
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      CART_PORT:
+        value: "8080"
+      ASPNETCORE_URLS:
+        value: http://*:8080
+      VALKEY_ADDR:
+        value: valkey-cart:6379
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://otel-collector:4317"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=high
+    resources:
+      requests:
+        cpu: 50m
+        memory: 160Mi
+      limits:
+        memory: 160Mi
+    securityContext: {}
+    initContainers:
+    - name: wait-for-valkey-cart
+      image: busybox:latest
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi
+      command: ["sh", "-c", "until nc -z -v -w30 valkey-cart 6379; do echo waiting for valkey-cart; sleep 2; done;"]

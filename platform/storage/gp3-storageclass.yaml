@@ -4,10 +4,14 @@ metadata:
   name: gp3
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
-provisioner: ebs.csi.aws.com
+provisioner: ebs.csi.eks.amazonaws.com
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
+allowedTopologies:
+  - matchLabelExpressions:
+      - key: eks.amazonaws.com/compute-type
+        values: [auto]
 parameters:
   type: gp3
   encrypted: "true"

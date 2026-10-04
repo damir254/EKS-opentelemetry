@@ -1,0 +1,90 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  load-generator:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-load-generator
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: load-generator
+      automount: false
+    # No listener is configured on 8080; preserve the existing placeholder.
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: tcp-unused
+      portName: tcp-unused
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    # Upstream Compose checks the k6 child process; port 8080 has no listener.
+    startupProbe:
+      exec:
+        command:
+        - pgrep
+        - -x
+        - k6
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      exec:
+        command:
+        - pgrep
+        - -x
+        - k6
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      exec:
+        command:
+        - pgrep
+        - -x
+        - k6
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      LOAD_GENERATOR_VUS:
+        value: "500"
+      K6_TARGET_URL:
+        value: "http://frontend-proxy:8080"
+      K6_BROWSER_ENABLED:
+        value: "false"
+      K6_BROWSER_ARGS:
+        value: "no-sandbox,disable-dev-shm-usage"
+      FLAGD_HOST:
+        value: "flagd"
+      FLAGD_PORT:
+        value: "8013"
+      FLAGD_OFREP_PORT:
+        value: "8016"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL:
+        value: "http/protobuf"
+      K6_OTEL_EXPORTER_PROTOCOL:
+        value: "http/protobuf"
+      K6_OTEL_HTTP_EXPORTER_ENDPOINT:
+        value: "otel-collector:4318"
+      K6_OTEL_HTTP_EXPORTER_INSECURE:
+        value: "true"
+      K6_OTEL_METRIC_PREFIX:
+        value: "k6."
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: "service.criticality=low"
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        memory: 512Mi
+    securityContext:
+      runAsUser: 33
+      runAsGroup: 33
+      runAsNonRoot: true

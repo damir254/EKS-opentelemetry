@@ -44,7 +44,7 @@ variable "kubernetes_version" {
 }
 
 variable "cluster_admin_role_arn" {
-  description = "Existing IAM role ARN granted EKS cluster-admin through an access entry (use an IAM Identity Center or other federated administration role, never an STS session ARN)."
+  description = "Existing IAM role ARN granted EKS cluster-admin through an access entry. Authenticate kubectl as this role when bootstrapping Argo CD."
   type        = string
 
   validation {
@@ -53,55 +53,10 @@ variable "cluster_admin_role_arn" {
   }
 }
 
-variable "node_instance_types" {
-  description = "Nitro x86_64 managed node instance types compatible with AL2023_x86_64_STANDARD and CNI prefix delegation. Two t3.large nodes provide 4 vCPU / 16 GiB total; monitor burst credits and scheduling capacity during load tests."
-  type        = list(string)
-  default     = ["t3.medium"]
-}
-
-variable "node_desired_size" {
-  description = "Desired managed node count. HPA scales pods; no node autoscaler is installed."
-  type        = number
-  default     = 2
-}
-
-variable "node_min_size" {
-  description = "Minimum managed node count (two preserves the intended multi-AZ design)."
-  type        = number
-  default     = 2
-
-  validation {
-    condition     = var.node_min_size >= 2 && floor(var.node_min_size) == var.node_min_size
-    error_message = "The node group minimum must be an integer of at least two."
-  }
-}
-
-variable "node_max_size" {
-  description = "Managed node group upper bound. It does not install or enable Cluster Autoscaler."
-  type        = number
-  default     = 4
-
-  validation {
-    condition     = var.node_max_size >= var.node_desired_size && var.node_desired_size >= var.node_min_size && floor(var.node_max_size) == var.node_max_size && floor(var.node_desired_size) == var.node_desired_size
-    error_message = "Use integer node capacities with min <= desired <= max."
-  }
-}
-
-variable "node_disk_size" {
-  description = "Encrypted gp3 root volume size in GiB for each managed node."
-  type        = number
-  default     = 50
-}
-
-variable "addon_versions" {
-  description = "Optional exact EKS add-on versions. Missing entries resolve the latest version compatible with kubernetes_version during plan; inspect addon_versions output and pin entries for a repeatable environment."
-  type        = map(string)
-  default     = {}
-
-  validation {
-    condition     = alltrue([for name in keys(var.addon_versions) : contains(["vpc-cni", "coredns", "kube-proxy", "eks-pod-identity-agent", "metrics-server", "aws-ebs-csi-driver"], name)])
-    error_message = "Only the six managed project add-on names are accepted."
-  }
+variable "metrics_server_version" {
+  description = "Optional exact Metrics Server add-on version. Null resolves the latest version compatible with kubernetes_version during plan; inspect addon_versions output and pin it for repeatable deployments."
+  type        = string
+  default     = null
 }
 
 variable "ecr_force_delete" {

@@ -1,0 +1,71 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  quote:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-quote
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: quote
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: http
+      portName: http
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    # Upstream has no dedicated HTTP health route; check its local listener.
+    startupProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      QUOTE_PORT:
+        value: "8080"
+      OTEL_PHP_AUTOLOAD_ENABLED:
+        value: "true"
+      OTEL_PHP_INTERNAL_METRICS_ENABLED:
+        value: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://$(OTEL_COLLECTOR_NAME):4318"
+      IPV6_ENABLED:
+        value: "false"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=low
+    resources:
+      requests:
+        cpu: 25m
+        memory: 40Mi
+      limits:
+        memory: 40Mi
+    securityContext:
+      runAsUser: 33
+      runAsGroup: 33
+      runAsNonRoot: true

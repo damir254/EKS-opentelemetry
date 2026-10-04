@@ -1,0 +1,128 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+# Image repository and tag are supplied by environments/dev-images.yaml.
+services:
+  payment:
+    enabled: true
+    replicaCount: 2
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    terminationGracePeriodSeconds: 35
+    istio:
+      enabled: true
+    rollout:
+      enabled: true
+      strategy:
+        canary:
+          maxSurge: 1
+          maxUnavailable: 0
+          # Keep stable at full capacity for immediate traffic restoration.
+          dynamicStableScale: false
+          scaleDownDelaySeconds: 30
+          abortScaleDownDelaySeconds: 30
+          trafficRouting:
+            istio:
+              virtualService:
+                name: payment
+                routes: [primary]
+              destinationRule:
+                name: payment
+                stableSubsetName: stable
+                canarySubsetName: canary
+          steps:
+          - setWeight: 10
+          - pause: {duration: 60s}
+          - analysis: &paymentAnalysis
+              analysisRunMetadata:
+                labels:
+                  app.kubernetes.io/component: payment
+              templates:
+              - templateName: payment-red
+              args:
+              - name: canary-hash
+                valueFrom:
+                  podTemplateHashValue: Latest
+          - setWeight: 25
+          - pause: {duration: 60s}
+          - analysis: *paymentAnalysis
+          - setWeight: 50
+          - pause: {duration: 60s}
+          - analysis: *paymentAnalysis
+          - setWeight: 100
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 60
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 60
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    image:
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: payment
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: grpc
+      portName: grpc
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    startupProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      PAYMENT_PORT:
+        value: "8080"
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://otel-collector:4317"
+      IPV6_ENABLED:
+        value: "false"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=critical
+      NODE_OPTIONS:
+        value: --require @opentelemetry/auto-instrumentations-node/register
+      OTEL_EXPORTER_OTLP_PROTOCOL:
+        value: grpc
+    resources:
+      # The existing CPU-utilization HPA needs a request on every container.
+      requests:
+        cpu: 50m
+        memory: 140Mi
+      limits:
+        memory: 140Mi
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      runAsNonRoot: true

@@ -1,0 +1,85 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+# Image repository and tag are supplied by environments/dev-images.yaml.
+services:
+  product-catalog:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: product-catalog
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: grpc
+      portName: grpc
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    startupProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      PRODUCT_CATALOG_PORT:
+        value: "8080"
+      FLAGD_HOST:
+        value: "flagd"
+      FLAGD_PORT:
+        value: "8013"
+      GOMEMLIMIT:
+        value: "16MiB"
+      DB_CONNECTION_STRING:
+        valueFrom:
+          secretKeyRef:
+            name: product-catalog-db
+            key: connection-string
+      OTEL_SEMCONV_STABILITY_OPT_IN:
+        value: "database"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://$(OTEL_COLLECTOR_NAME):4317"
+      OTEL_CONFIG_FILE:
+        value: "/otel-config.yml"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: "service.criticality=high"
+    mountedConfigMaps:
+    - name: product-catalog-otel-config
+      mountPath: /otel-config.yml
+      subPath: otel-config.yml
+      dataFiles:
+        otel-config.yml: files/product-catalog/otel-config.yml
+    resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        memory: 100Mi
+    securityContext:
+      readOnlyRootFilesystem: true
+    mountedEmptyDirs:
+    - name: tmp
+      mountPath: /tmp

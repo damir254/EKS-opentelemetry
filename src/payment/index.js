@@ -7,6 +7,7 @@ const opentelemetry = require('@opentelemetry/api')
 
 const charge = require('./charge')
 const logger = require('./logger')
+const { createShutdownHandler } = require('./shutdown')
 
 async function chargeServiceHandler(call, callback) {
   const span = opentelemetry.trace.getActiveSpan();
@@ -29,17 +30,12 @@ async function chargeServiceHandler(call, callback) {
   }
 }
 
-async function closeGracefully(signal) {
-  server.forceShutdown()
-  process.kill(process.pid, signal)
-}
-
 const otelDemoPackage = grpc.loadPackageDefinition(protoLoader.loadSync('demo.proto'))
 const server = new grpc.Server()
-
-server.addService(health.service, new health.Implementation({
+const healthStatus = new health.Implementation({
   '': health.servingStatus.SERVING
-}))
+})
+server.addService(health.service, healthStatus)
 
 server.addService(otelDemoPackage.oteldemo.PaymentService.service, { charge: chargeServiceHandler })
 
@@ -63,9 +59,9 @@ server.bindAsync(address, grpc.ServerCredentials.createInsecure(), (err, port) =
   logger.info(`payment gRPC server started on ${address}`)
 })
 
-process.once('SIGINT', closeGracefully)
-process.once('SIGTERM', closeGracefully)
-
+const closeGracefully = createShutdownHandler(server, healthStatus, logger)
+process.once('SIGINT', () => closeGracefully('SIGINT'))
+process.once('SIGTERM', () => closeGracefully('SIGTERM'))
 
 
 

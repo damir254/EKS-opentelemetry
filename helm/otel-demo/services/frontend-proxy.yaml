@@ -1,0 +1,120 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  frontend-proxy:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-frontend-proxy
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: frontend-proxy
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: http
+      portName: http
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    # Envoy admin /ready reports local server readiness without calling upstream services.
+    startupProbe:
+      httpGet:
+        path: /ready
+        port: 10000
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 10000
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /ready
+        port: 10000
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      LOCUST_WEB_PORT:
+        value: "8089"
+      LOCUST_WEB_HOST:
+        value: load-generator
+      ENVOY_PORT:
+        value: "8080"
+      ENVOY_ADDR:
+        value: "0.0.0.0"
+      ENVOY_ADMIN_PORT:
+        value: "10000"
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      FLAGD_UI_HOST:
+        value: flagd
+      FLAGD_UI_PORT:
+        value: "4000"
+      FRONTEND_HOST:
+        value: "frontend"
+      FRONTEND_PORT:
+        value: "8080"
+      GRAFANA_HOST:
+        value: grafana
+      GRAFANA_PORT:
+        value: "80"
+      IMAGE_PROVIDER_HOST:
+        value: image-provider
+      IMAGE_PROVIDER_PORT:
+        value: "8081"
+      JAEGER_HOST:
+        value: jaeger
+      JAEGER_UI_PORT:
+        value: "16686"
+      CHATBOT_HOST:
+        value: chatbot
+      CHATBOT_PORT:
+        value: "7860"
+      OPAMP_SERVER_HOST:
+        value: opamp-server
+      OPAMP_SERVER_UI_PORT:
+        value: "4321"
+      FIREPIT_HOST:
+        value: firepit
+      FIREPIT_PORT:
+        value: "8080"
+      TELEMETRY_DOCS_HOST:
+        value: telemetry-docs
+      TELEMETRY_DOCS_PORT:
+        value: "8000"
+      OTEL_COLLECTOR_HOST:
+        value: $(OTEL_COLLECTOR_NAME)
+      OTEL_COLLECTOR_PORT_GRPC:
+        value: "4317"
+      OTEL_COLLECTOR_PORT_HTTP:
+        value: "4318"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=critical
+    resources:
+      requests:
+        cpu: 50m
+        memory: 90Mi
+      limits:
+        memory: 90Mi
+    securityContext:
+      runAsUser: 101
+      runAsGroup: 101
+      runAsNonRoot: true

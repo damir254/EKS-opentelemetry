@@ -1,0 +1,68 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  email:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-email
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: email
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: http
+      portName: http
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    # Upstream has no dedicated HTTP health route; check its local listener.
+    startupProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      EMAIL_PORT:
+        value: "8080"
+      APP_ENV:
+        value: production
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://otel-collector:4318"
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=medium
+    resources:
+      requests:
+        cpu: 50m
+        memory: 100Mi
+      limits:
+        memory: 100Mi
+    securityContext: {}

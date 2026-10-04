@@ -1,0 +1,68 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  image-provider:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-image-provider
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: image-provider
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8081
+      targetPort: http
+      portName: http
+      protocol: TCP
+    podAnnotations:
+      io.opentelemetry.discovery.metrics/enabled: "true"
+      io.opentelemetry.discovery.metrics/scraper: "nginx"
+    containerPort: 8081
+    selectorLabels:
+      includeCommon: true
+    startupProbe:
+      httpGet:
+        path: /status
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      httpGet:
+        path: /status
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /status
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      IMAGE_PROVIDER_PORT:
+        value: "8081"
+      OTEL_COLLECTOR_PORT_GRPC:
+        value: "4317"
+      OTEL_COLLECTOR_HOST:
+        value: $(OTEL_COLLECTOR_NAME)
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=low
+    resources:
+      requests:
+        cpu: 25m
+        memory: 100Mi
+      limits:
+        memory: 100Mi

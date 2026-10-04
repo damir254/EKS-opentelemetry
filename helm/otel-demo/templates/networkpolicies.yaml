@@ -67,14 +67,9 @@ spec:
       {{- include "otel-demo.selectorLabels" . | nindent 6 }}
   policyTypes: [Egress]
   egress:
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-          podSelector:
-            matchLabels:
-              k8s-app: kube-dns
-      ports:
+    # Auto Mode serves DNS on each node, outside a CoreDNS pod selector.
+    # Omitting `to` permits DNS to node resolvers while limiting ports to 53.
+    - ports:
         - protocol: UDP
           port: 53
         - protocol: TCP

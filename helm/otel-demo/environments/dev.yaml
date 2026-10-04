@@ -1,0 +1,19 @@
+# Development environment infrastructure overrides.
+networkPolicy:
+  # Matches module.vpc.cidr_block in terraform/main.tf; ALB IP targets use VPC IPs.
+  albSourceCidr: 10.0.0.0/16
+paymentAnalysis:
+  # monitoring release + kube-prometheus-stack fullname (truncated to 26 chars).
+  prometheusAddress: http://monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+ingress:
+  enabled: true
+  name: otel-demo
+  className: alb
+  # Empty host accepts requests to the generated ALB DNS name.
+  host: ""
+  annotations:
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/success-codes: "200"

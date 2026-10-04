@@ -1,0 +1,78 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  shipping:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-shipping
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: shipping
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: http
+      portName: http
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    startupProbe:
+      httpGet:
+        path: /health
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      SHIPPING_PORT:
+        value: "8080"
+      QUOTE_ADDR:
+        value: "http://quote:8080"
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://otel-collector:4318"
+      OTEL_EXPORTER_OTLP_PROTOCOL:
+        value: http/protobuf
+      IPV6_ENABLED:
+        value: "false"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=high
+    resources:
+      requests:
+        cpu: 25m
+        memory: 20Mi
+      limits:
+        memory: 20Mi
+    securityContext:
+      readOnlyRootFilesystem: true
+    mountedEmptyDirs:
+    - name: tmp
+      mountPath: /tmp

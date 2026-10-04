@@ -25,6 +25,10 @@ spec:
       app.kubernetes.io/component: postgres
   template:
     metadata:
+      {{- with .Values.postgres.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
         {{- include "otel-demo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: postgres
@@ -38,6 +42,8 @@ spec:
             - name: tcp-postgres
               containerPort: {{ .Values.postgres.port }}
               protocol: TCP
+
+          {{- include "otel-demo.probes" .Values.postgres | nindent 10 }}
 
           env:
             - name: POSTGRES_PASSWORD

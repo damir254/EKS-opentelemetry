@@ -1,0 +1,108 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  frontend:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-frontend
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: frontend
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: http
+      portName: http
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    # Upstream has no dedicated HTTP health route; check its local listener.
+    startupProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      tcpSocket:
+        port: http
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      FRONTEND_PORT:
+        value: "8080"
+      PORT:
+        value: $(FRONTEND_PORT)
+      FRONTEND_ADDR:
+        value: frontend:8080
+      AD_ADDR:
+        value: ad:8080
+      CART_ADDR:
+        value: cart:8080
+      CHECKOUT_ADDR:
+        value: checkout:8080
+      CURRENCY_ADDR:
+        value: currency:8080
+      PRODUCT_CATALOG_ADDR:
+        value: product-catalog:8080
+      RECOMMENDATION_ADDR:
+        value: recommendation:8080
+      SHIPPING_ADDR:
+        value: http://shipping:8080
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      ENV_PLATFORM:
+        value: kubernetes
+      OTEL_COLLECTOR_HOST:
+        value: $(OTEL_COLLECTOR_NAME)
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: http://$(OTEL_COLLECTOR_NAME):4317
+      WEB_OTEL_SERVICE_NAME:
+        value: frontend-web
+      PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:
+        value: http://localhost:8080/otlp-http/v1/traces
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=critical
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 250Mi
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 60
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 60
+    securityContext:
+      runAsUser: 1001
+      runAsGroup: 1001
+      runAsNonRoot: true

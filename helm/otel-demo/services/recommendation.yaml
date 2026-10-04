@@ -1,0 +1,78 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+# Image repository and tag are supplied by environments/dev-images.yaml.
+services:
+  recommendation:
+    enabled: true
+    replicaCount: 2
+    topologySpread:
+      enabled: true
+      zone: true
+      hostname: true
+    pdb:
+      enabled: true
+      maxUnavailable: 1
+    image:
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: recommendation
+      automount: false
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: grpc
+      portName: grpc
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    podSecurityContext:
+      runAsNonRoot: false
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+        - ALL
+    startupProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 60
+    readinessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 5
+      timeoutSeconds: 2
+      failureThreshold: 3
+    livenessProbe:
+      grpc:
+        port: 8080
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 6
+    env:
+      OTEL_SERVICE_NAME:
+        value: recommendation
+      RECOMMENDATION_PORT:
+        value: "8080"
+      PRODUCT_CATALOG_ADDR:
+        value: "product-catalog:8080"
+      FLAGD_HOST:
+        value: flagd
+      FLAGD_PORT:
+        value: "8013"
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: "http://otel-collector:4317"
+      OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE:
+        value: delta
+      OTEL_RESOURCE_ATTRIBUTES:
+        value: "service.namespace=otel-demo"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi

@@ -37,6 +37,14 @@ automountServiceAccountToken: {{ .service.serviceAccount.automount }}
 
 {{- define "otel-demo.serviceConfigMaps" -}}
 {{- range .service.mountedConfigMaps }}
+{{- $data := deepCopy (.data | default dict) }}
+{{- range $key, $path := .dataFiles }}
+{{- if hasKey $data $key }}
+{{- fail (printf "%s: ConfigMap key %s is defined in both data and dataFiles" $.name $key) }}
+{{- end }}
+{{- $content := required (printf "%s: ConfigMap file %s is missing or empty" $.name $path) ($.root.Files.Get $path) }}
+{{- $_ := set $data $key $content }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -45,7 +53,7 @@ metadata:
     {{- include "otel-demo.labels" $.root | nindent 4 }}
     app.kubernetes.io/component: {{ $.name }}
 data:
-  {{- toYaml .data | nindent 2 }}
+  {{- toYaml $data | nindent 2 }}
 ---
 {{- end }}
 {{- end }}
@@ -83,9 +91,13 @@ spec:
       {{- include "otel-demo.serviceSelectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- $podAnnotations := deepCopy (.service.podAnnotations | default dict) }}
       {{- with $istio.excludeOutboundPorts }}
+      {{- $_ := set $podAnnotations "traffic.sidecar.istio.io/excludeOutboundPorts" . }}
+      {{- end }}
+      {{- with $podAnnotations }}
       annotations:
-        traffic.sidecar.istio.io/excludeOutboundPorts: {{ . | quote }}
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
         {{- include "otel-demo.servicePodLabels" . | nindent 8 }}
@@ -94,6 +106,9 @@ spec:
         {{- end }}
     spec:
       enableServiceLinks: false
+      {{- with .service.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
 
       {{- $topologySpread := .service.topologySpread | default (dict) }}
       {{- if and $topologySpread.enabled (or $topologySpread.zone $topologySpread.hostname) }}
@@ -101,7 +116,8 @@ spec:
         {{- if $topologySpread.zone }}
         - maxSkew: 1
           topologyKey: topology.kubernetes.io/zone
-          whenUnsatisfiable: DoNotSchedule
+          whenUnsatisfiable: {{ $topologySpread.zoneWhenUnsatisfiable | default "ScheduleAnyway" }}
+          nodeTaintsPolicy: Honor
           labelSelector:
             matchLabels:
               {{- include "otel-demo.servicePodLabels" . | nindent 14 }}
@@ -110,6 +126,11 @@ spec:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
           whenUnsatisfiable: DoNotSchedule
+          nodeTaintsPolicy: Honor
+          {{- if ge (int .service.replicaCount) 2 }}
+          # Require two eligible nodes even when Auto Mode starts from one.
+          minDomains: 2
+          {{- end }}
           labelSelector:
             matchLabels:
               {{- include "otel-demo.servicePodLabels" . | nindent 14 }}
@@ -144,6 +165,8 @@ spec:
             - name: {{ .service.service.portName }}
               containerPort: {{ .service.containerPort }}
               protocol: {{ .service.service.protocol }}
+
+          {{- include "otel-demo.probes" .service | nindent 10 }}
 
           {{- $defaultEnv := deepCopy (default (dict) .root.Values.defaultEnv) }}
           {{- $serviceEnv := default (dict) .service.env }}
@@ -252,6 +275,9 @@ spec:
 
 {{- define "otel-demo.serviceHPA" -}}
 {{- if and .service.hpa .service.hpa.enabled }}
+{{- if lt (int .service.hpa.maxReplicas) (int .service.hpa.minReplicas) }}
+{{- fail (printf "%s: HPA maxReplicas must be at least minReplicas" .name) }}
+{{- end }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -272,11 +298,27 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .service.hpa.targetCPUUtilizationPercentage }}
+  {{- with .service.hpa.behavior }}
+  behavior:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 {{- end }}
 {{- end }}
 
 {{- define "otel-demo.servicePDB" -}}
 {{- if and .service.pdb .service.pdb.enabled }}
+{{- $minimumReplicas := .service.replicaCount }}
+{{- if (.service.hpa | default dict).enabled }}
+{{- $minimumReplicas = .service.hpa.minReplicas }}
+{{- end }}
+{{- if lt (int $minimumReplicas) 2 }}
+{{- fail (printf "%s: enable a PDB only with at least two replicas (or HPA minReplicas); disable its PDB for a single-replica development override" .name) }}
+{{- end }}
+{{- if and (ne .service.pdb.minAvailable nil) (not (kindIs "string" .service.pdb.minAvailable)) }}
+{{- if ge (int .service.pdb.minAvailable) (int $minimumReplicas) }}
+{{- fail (printf "%s: PDB minAvailable must be below the minimum replica count to allow a voluntary eviction" .name) }}
+{{- end }}
+{{- end }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -285,7 +327,12 @@ metadata:
     {{- include "otel-demo.labels" .root | nindent 4 }}
     app.kubernetes.io/component: {{ .name }}
 spec:
+  {{- if ne .service.pdb.minAvailable nil }}
   minAvailable: {{ .service.pdb.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ .service.pdb.maxUnavailable }}
+  {{- end }}
+  unhealthyPodEvictionPolicy: {{ .service.pdb.unhealthyPodEvictionPolicy | default "AlwaysAllow" }}
   selector:
     matchLabels:
       {{- include "otel-demo.serviceSelectorLabels" . | nindent 6 }}

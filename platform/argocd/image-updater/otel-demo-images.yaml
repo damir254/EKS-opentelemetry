@@ -9,7 +9,7 @@ spec:
     gitConfig:
       repository: git@github.com:damir254/EKS-opentelemetry.git
       branch: main
-      writeBackTarget: helmvalues:./values.yaml
+      writeBackTarget: helmvalues:./environments/dev-images.yaml
   applicationRefs:
     - namePattern: otel-demo
       images:

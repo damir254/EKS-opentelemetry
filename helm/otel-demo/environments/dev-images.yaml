@@ -1,0 +1,14 @@
+# Argo CD Image Updater writes repository/tag changes here. Keep this layer last.
+services:
+  recommendation:
+    image:
+      repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/recommendation
+      tag: "2921856b440ec82f67d67f9e6dd5a19f32e4656f"
+  product-catalog:
+    image:
+      repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/product-catalog
+      tag: "e686e5efcf40db177b775573921974a4d3f74402"
+  payment:
+    image:
+      repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/payment
+      tag: "2fb4bed51e5212d38cff78c6f2cd6842b2d76a73"

@@ -1,0 +1,56 @@
+# Service-owned workload configuration. Environment overrides load after this file.
+services:
+  accounting:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: ghcr.io/open-telemetry/demo
+      tag: latest-accounting
+      pullPolicy: IfNotPresent
+    serviceAccount:
+      create: true
+      name: accounting
+      automount: false
+    # Kafka consumer with no inbound listener; preserve the existing placeholder.
+    service:
+      type: ClusterIP
+      port: 8080
+      targetPort: tcp-unused
+      portName: tcp-unused
+      protocol: TCP
+    containerPort: 8080
+    selectorLabels:
+      includeCommon: true
+    env:
+      KAFKA_ADDR:
+        value: kafka:9092
+      KAFKA_TOPIC:
+        value: orders
+      OTEL_EXPORTER_OTLP_ENDPOINT:
+        value: http://$(OTEL_COLLECTOR_NAME):4318
+      DB_CONNECTION_STRING:
+        valueFrom:
+          secretKeyRef:
+            name: accounting-db
+            key: connection-string
+      OTEL_DOTNET_AUTO_TRACES_ENTITYFRAMEWORKCORE_INSTRUMENTATION_ENABLED:
+        value: "false"
+      OTEL_RESOURCE_ATTRIBUTES_EXTRA:
+        value: service.criticality=low
+    resources:
+      requests:
+        cpu: 50m
+        memory: 200Mi
+      limits:
+        memory: 200Mi
+    initContainers:
+    - name: wait-for-kafka
+      image: busybox:latest
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi
+      command: ["sh", "-c", "until nc -z -v -w30 kafka 9092; do echo waiting for kafka; sleep 2; done;"]

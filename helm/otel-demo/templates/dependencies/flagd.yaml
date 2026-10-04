@@ -62,12 +62,7 @@ spec:
               containerPort: 8013
             - name: http
               containerPort: 8016
-          readinessProbe:
-            tcpSocket:
-              port: grpc
-          livenessProbe:
-            tcpSocket:
-              port: grpc
+          {{- include "otel-demo.probes" .Values.flagd | nindent 10 }}
           resources:
             {{- toYaml .Values.flagd.resources | nindent 12 }}
           volumeMounts:

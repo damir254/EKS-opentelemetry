@@ -1,0 +1,83 @@
+# Shared connectivity policy; coordinate dependency changes with the platform team.
+networkPolicy:
+  enabled: true
+  # Directed TCP connections: source component -> destination component -> ports.
+  # Each edge renders both source egress and destination ingress.
+  # Upstream image config inspected at 604c4612c4339e5bd4fe11efa33d254f29ddfd44
+  # (the k6 implementation configured here; latest-* image tags are mutable).
+  connections:
+    accounting:
+      kafka: [9092]
+      postgres: [5432]
+      otel-collector: [4318]
+    ad:
+      flagd: [8013]
+      otel-collector: [4318]
+    cart:
+      valkey: [6379] # valkey-cart Service, including the wait init container
+      flagd: [8013]
+      otel-collector: [4317]
+    checkout:
+      cart: [8080]
+      currency: [8080]
+      email: [8080]
+      payment: [8080]
+      product-catalog: [8080]
+      shipping: [8080]
+      kafka: [9092] # also used by the wait init container
+      flagd: [8013]
+      otel-collector: [4318]
+    currency:
+      otel-collector: [4317]
+    email:
+      flagd: [8013]
+      otel-collector: [4318]
+    flagd:
+      otel-collector: [4318]
+    fraud-detection:
+      kafka: [9092]
+      flagd: [8013]
+      otel-collector: [4318]
+    frontend:
+      ad: [8080]
+      cart: [8080]
+      checkout: [8080]
+      currency: [8080]
+      product-catalog: [8080]
+      recommendation: [8080]
+      shipping: [8080]
+      otel-collector: [4317]
+      # Feature flags execute in the browser via frontend-proxy /flagservice/.
+    frontend-proxy:
+      frontend: [8080]
+      image-provider: [8081]
+      flagd: [8013]
+      otel-collector: [4317, 4318] # proxy telemetry + browser /otlp-http/ route
+      # Legacy Locust/UI env vars have no deployed backend/listener here.
+    image-provider:
+      otel-collector: [4317]
+    kafka: {} # one broker/controller; KRaft quorum uses localhost:9093
+    load-generator:
+      frontend-proxy: [8080]
+      flagd: [8016] # k6 entrypoint/script use OFREP, not FLAGD_PORT's RPC port
+      otel-collector: [4318]
+    otel-collector: {} # Loki egress is a separate cross-namespace policy.
+    payment:
+      flagd: [8013]
+      otel-collector: [4317]
+    postgres: {} # astronomy-db Service; no outbound database dependency
+    product-catalog:
+      postgres: [5432]
+      flagd: [8013]
+      otel-collector: [4317]
+    quote:
+      otel-collector: [4318]
+    recommendation:
+      product-catalog: [8080]
+      flagd: [8013]
+      otel-collector: [4317]
+    shipping:
+      quote: [8080]
+      flagd: [8013]
+      otel-collector: [4318]
+    valkey: {}

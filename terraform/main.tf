@@ -29,12 +29,7 @@ module "eks" {
   kubernetes_version     = var.kubernetes_version
   private_subnet_ids     = module.vpc.private_subnet_ids
   cluster_admin_role_arn = var.cluster_admin_role_arn
-  node_instance_types    = var.node_instance_types
-  node_desired_size      = var.node_desired_size
-  node_min_size          = var.node_min_size
-  node_max_size          = var.node_max_size
-  node_disk_size         = var.node_disk_size
-  addon_versions         = var.addon_versions
+  metrics_server_version = var.metrics_server_version
 }
 
 module "ecr" {

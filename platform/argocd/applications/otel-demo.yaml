@@ -11,12 +11,37 @@ spec:
     repoURL: https://github.com/damir254/EKS-opentelemetry.git
     targetRevision: main
     path: helm/otel-demo
+    helm:
+      # Explicit order: shared settings, service-owned values, environment, images.
+      valueFiles:
+        - values/dependencies.yaml
+        - values/network-policy.yaml
+        - services/accounting.yaml
+        - services/ad.yaml
+        - services/cart.yaml
+        - services/checkout.yaml
+        - services/currency.yaml
+        - services/email.yaml
+        - services/fraud-detection.yaml
+        - services/frontend.yaml
+        - services/frontend-proxy.yaml
+        - services/image-provider.yaml
+        - services/load-generator.yaml
+        - services/payment.yaml
+        - services/product-catalog.yaml
+        - services/quote.yaml
+        - services/recommendation.yaml
+        - services/shipping.yaml
+        - environments/dev.yaml
+        - environments/dev-images.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: dev
   ignoreDifferences:
     - group: apps
       kind: Deployment
+      name: frontend
+      namespace: dev
       jsonPointers:
         - /spec/replicas
     - group: argoproj.io

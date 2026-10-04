@@ -15,11 +15,6 @@ locals {
       namespace       = "argocd"
       service_account = "argocd-image-updater-controller"
     }
-    load_balancer_controller = {
-      role_suffix     = "load-balancer-controller"
-      namespace       = "kube-system"
-      service_account = "aws-load-balancer-controller"
-    }
   }
   github_repository_parts = split("/", var.github_repository)
   github_oidc_subject = var.github_use_immutable_subject ? (
@@ -96,38 +91,6 @@ resource "aws_iam_role_policy" "image_updater" {
       },
     ]
   })
-}
-
-# Derived from the vendored official v3.5.0 policy (see README.md). Keep its
-# resource-tag conditions, narrow tagged operations to this cluster, and scope
-# resource ARNs to this account/region. WAF and Shield are disabled in GitOps.
-locals {
-  load_balancer_policy = jsondecode(file("${path.module}/aws-load-balancer-controller-policy-v3.5.0.json"))
-  load_balancer_statements = [for statement in local.load_balancer_policy.Statement : merge(statement, {
-    Action   = [for action in statement.Action : action if !startswith(action, "waf") && !startswith(action, "shield:") && action != "elasticloadbalancing:SetWebAcl"]
-    Resource = [for resource in flatten([statement.Resource]) : replace(resource, ":*:*:", ":${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:")]
-    }, can(statement.Condition) ? {
-    Condition = merge(statement.Condition, {
-      StringEquals = merge(try(statement.Condition.StringEquals, {}), {
-        for key, value in try(statement.Condition.Null, {}) : key => var.cluster_name
-        if value == "false" && contains(["aws:RequestTag/elbv2.k8s.aws/cluster", "aws:ResourceTag/elbv2.k8s.aws/cluster"], key)
-      })
-    })
-  } : {})]
-
-}
-
-resource "aws_iam_policy" "load_balancer_controller" {
-  name = "${var.cluster_name}-load-balancer-controller"
-  policy = jsonencode({
-    Version   = local.load_balancer_policy.Version
-    Statement = [for statement in local.load_balancer_statements : statement if length(statement.Action) > 0]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "load_balancer_controller" {
-  role       = aws_iam_role.pod_identity["load_balancer_controller"].name
-  policy_arn = aws_iam_policy.load_balancer_controller.arn
 }
 
 # GitHub is an account-level OIDC provider; EKS Pod Identity does not need an

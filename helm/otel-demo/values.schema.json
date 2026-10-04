@@ -1,0 +1,242 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OpenTelemetry demo chart values",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "defaultEnv": {"type": "object"},
+    "services": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$", "maxLength": 63},
+      "additionalProperties": {"$ref": "#/definitions/service"}
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "albSourceCidr": {"type": "string"},
+        "connections": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {"type": "array", "minItems": 1, "items": {"$ref": "#/definitions/port"}}
+          }
+        }
+      }
+    },
+    "postgres": {"$ref": "#/definitions/dependency"},
+    "flagd": {"$ref": "#/definitions/dependency"},
+    "valkey": {"$ref": "#/definitions/dependency"},
+    "kafka": {"$ref": "#/definitions/dependency"},
+    "otelCollector": {"$ref": "#/definitions/dependency"},
+    "paymentAnalysis": {"type": "object", "additionalProperties": false, "properties": {"prometheusAddress": {"type": "string"}}},
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "name": {"type": "string", "minLength": 1},
+        "className": {"type": "string", "minLength": 1},
+        "host": {"type": "string"},
+        "annotations": {"type": "object", "additionalProperties": {"type": "string"}}
+      },
+      "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
+      "then": {"required": ["name", "className"]}
+    }
+  },
+  "definitions": {
+    "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string", "minLength": 1},
+        "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "image": {"$ref": "#/definitions/image"},
+        "port": {"$ref": "#/definitions/port"},
+        "service": {"type": "object"},
+        "resources": {"$ref": "#/definitions/resources"},
+        "podAnnotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "startupProbe": {"$ref": "#/definitions/probe"},
+        "readinessProbe": {"$ref": "#/definitions/probe"},
+        "livenessProbe": {"$ref": "#/definitions/probe"}
+      },
+      "required": ["enabled"],
+      "if": {"properties": {"enabled": {"const": true}}},
+      "then": {
+        "required": ["image", "resources"],
+        "properties": {"image": {"required": ["repository", "tag", "pullPolicy"]}}
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "replicaCount": {"type": "integer", "minimum": 0},
+        "image": {"$ref": "#/definitions/image"},
+        "containerPort": {"$ref": "#/definitions/port"},
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {"enum": ["ClusterIP", "NodePort", "LoadBalancer"]},
+            "port": {"$ref": "#/definitions/port"},
+            "targetPort": {"oneOf": [{"$ref": "#/definitions/port"}, {"type": "string", "minLength": 1}]},
+            "portName": {"type": "string", "minLength": 1},
+            "protocol": {"enum": ["TCP", "UDP", "SCTP"]}
+          },
+          "required": ["type", "port", "targetPort", "portName", "protocol"]
+        },
+        "serviceAccount": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {"create": {"type": "boolean"}, "name": {"type": "string"}, "automount": {"type": "boolean"}},
+          "required": ["create"],
+          "if": {"properties": {"create": {"const": true}}},
+          "then": {"required": ["automount"]}
+        },
+        "selectorLabels": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {"includeCommon": {"type": "boolean"}},
+          "required": ["includeCommon"]
+        },
+        "readinessProbe": {"$ref": "#/definitions/probe"},
+        "mountedConfigMaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "mountPath": {"type": "string", "minLength": 1},
+              "subPath": {"type": "string"},
+              "data": {"type": "object", "additionalProperties": {"type": "string"}},
+              "dataFiles": {"type": "object", "additionalProperties": {"type": "string", "pattern": "^files/"}}
+            },
+            "required": ["name", "mountPath"],
+            "anyOf": [{"required": ["data"]}, {"required": ["dataFiles"]}]
+          }
+        },
+        "env": {"type": "object"},
+        "resources": {"$ref": "#/definitions/resources"},
+        "securityContext": {"type": "object"},
+        "podSecurityContext": {"type": "object"},
+        "podAnnotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "podAutomountServiceAccountToken": {"type": "boolean"},
+        "initContainers": {"type": "array", "items": {"type": "object", "properties": {"resources": {"$ref": "#/definitions/resources"}}, "required": ["resources"]}},
+        "mountedEmptyDirs": {"type": "array", "items": {"type": "object"}},
+        "istio": {"type": "object"},
+        "rollout": {"type": "object"},
+        "hpa": {"$ref": "#/definitions/hpa"},
+        "pdb": {"$ref": "#/definitions/pdb"},
+        "topologySpread": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "zone": {"type": "boolean"},
+            "hostname": {"type": "boolean"},
+            "zoneWhenUnsatisfiable": {"enum": ["ScheduleAnyway", "DoNotSchedule"]}
+          }
+        },
+        "startupProbe": {"$ref": "#/definitions/probe"},
+        "livenessProbe": {"$ref": "#/definitions/probe"},
+        "terminationGracePeriodSeconds": {"type": "integer", "minimum": 1}
+      },
+      "required": ["enabled"],
+      "if": {"properties": {"enabled": {"const": true}}},
+      "then": {
+        "required": ["replicaCount", "image", "containerPort", "service", "serviceAccount", "selectorLabels", "resources"],
+        "properties": {"image": {"required": ["repository", "tag", "pullPolicy"]}}
+      }
+    },
+    "quantity": {"oneOf": [{"type": "number", "minimum": 0}, {"type": "string", "minLength": 1}]},
+    "resources": {
+      "type": "object",
+      "properties": {
+        "requests": {"type": "object", "additionalProperties": {"$ref": "#/definitions/quantity"}, "required": ["cpu", "memory"]},
+        "limits": {"type": "object", "additionalProperties": {"$ref": "#/definitions/quantity"}}
+      },
+      "required": ["requests"]
+    },
+    "hpa": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "minReplicas": {"type": "integer", "minimum": 1},
+        "maxReplicas": {"type": "integer", "minimum": 1},
+        "targetCPUUtilizationPercentage": {"type": "integer", "minimum": 1},
+        "behavior": {"type": "object"}
+      },
+      "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
+      "then": {"required": ["minReplicas", "maxReplicas", "targetCPUUtilizationPercentage"]}
+    },
+    "disruptionCount": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "string", "pattern": "^(100|[0-9]{1,2})%$"}]},
+    "pdb": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "minAvailable": {"anyOf": [{"$ref": "#/definitions/disruptionCount"}, {"type": "null"}]},
+        "maxUnavailable": {"anyOf": [{"$ref": "#/definitions/disruptionCount"}, {"type": "null"}]},
+        "unhealthyPodEvictionPolicy": {"enum": ["AlwaysAllow", "IfHealthyBudget"]}
+      },
+      "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
+      "then": {
+        "oneOf": [
+          {"required": ["minAvailable"], "properties": {"minAvailable": {"$ref": "#/definitions/disruptionCount"}, "maxUnavailable": {"type": "null"}}},
+          {"required": ["maxUnavailable"], "properties": {"maxUnavailable": {"$ref": "#/definitions/disruptionCount"}, "minAvailable": {"type": "null"}}}
+        ]
+      }
+    },
+    "probe": {
+      "type": "object",
+      "properties": {
+        "grpc": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {"port": {"$ref": "#/definitions/port"}, "service": {"type": "string"}},
+          "required": ["port"]
+        },
+        "periodSeconds": {"type": "integer", "minimum": 1},
+        "timeoutSeconds": {"type": "integer", "minimum": 1},
+        "failureThreshold": {"type": "integer", "minimum": 1},
+        "httpGet": {
+          "type": "object",
+          "required": ["path", "port"],
+          "properties": {
+            "path": {"type": "string"},
+            "port": {"oneOf": [{"$ref": "#/definitions/port"}, {"type": "string", "minLength": 1}]}
+          }
+        },
+        "tcpSocket": {
+          "type": "object",
+          "required": ["port"],
+          "properties": {"port": {"oneOf": [{"$ref": "#/definitions/port"}, {"type": "string", "minLength": 1}]}}
+        },
+        "exec": {
+          "type": "object",
+          "required": ["command"],
+          "properties": {"command": {"type": "array", "minItems": 1, "items": {"type": "string"}}}
+        },
+        "initialDelaySeconds": {"type": "integer", "minimum": 0},
+        "successThreshold": {"type": "integer", "minimum": 1},
+        "terminationGracePeriodSeconds": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false,
+      "oneOf": [{"required": ["grpc"]}, {"required": ["httpGet"]}, {"required": ["tcpSocket"]}, {"required": ["exec"]}]
+    }
+  }
+}

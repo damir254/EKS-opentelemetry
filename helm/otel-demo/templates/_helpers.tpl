@@ -22,3 +22,12 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/name: {{ include "otel-demo.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{- define "otel-demo.probes" -}}
+{{- range $name := list "startupProbe" "readinessProbe" "livenessProbe" }}
+{{- with index $ $name }}
+{{ $name }}:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}

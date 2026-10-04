@@ -29,5 +29,6 @@ COPY ./pb/demo.proto demo.proto
 COPY ./src/payment/index.js ./
 COPY ./src/payment/charge.js ./
 COPY ./src/payment/logger.js ./
+COPY ./src/payment/shutdown.js ./
 
 CMD [ "index.js"]

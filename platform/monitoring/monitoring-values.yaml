@@ -13,12 +13,20 @@ customRules:
   KubeHpaMaxedOut:
     for: 10m
 defaultRules:
+  rules:
+    kubeProxy: false
   additionalRuleAnnotations:
     KubeHpaMaxedOut:
       description: >-
         HPA {{ $labels.namespace }}/{{ $labels.horizontalpodautoscaler }} has
         been at its maximum replica count for at least 10 minutes. Review
         workload demand, the replica limit, and available cluster capacity.
+
+# Auto Mode runs these components as node services rather than scrapeable pods.
+coreDns:
+  enabled: false
+kubeProxy:
+  enabled: false
 
 prometheus:
   enabled: true

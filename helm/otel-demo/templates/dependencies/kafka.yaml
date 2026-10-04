@@ -14,6 +14,10 @@ spec:
       app.kubernetes.io/component: kafka
   template:
     metadata:
+      {{- with .Values.kafka.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       labels:
         {{- include "otel-demo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: kafka
@@ -56,7 +60,8 @@ spec:
               containerPort: 9092
             - name: tcp-controller
               containerPort: 9093
-          
+          {{- include "otel-demo.probes" .Values.kafka | nindent 10 }}
+
           resources:
             {{- toYaml .Values.kafka.resources | nindent 12 }}
 ---
