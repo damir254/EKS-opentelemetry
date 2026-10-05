@@ -1,5 +1,27 @@
 grafana:
   enabled: true
+  # A single Grafana instance owns the SQLite database on its RWO volume.
+  deploymentStrategy:
+    type: Recreate
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: gp3
+    accessModes:
+      - ReadWriteOnce
+    size: 2Gi
+    annotations:
+      # Preserve the claim if the Application or chart is removed.
+      argocd.argoproj.io/sync-options: Prune=false,Delete=false
+      helm.sh/resource-policy: keep
+  initChownData:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
   resources:
     requests:
       cpu: 100m
@@ -75,6 +97,20 @@ prometheus:
   enabled: true
   prometheusSpec:
     retention: 7d
+    # Leave space for the WAL, head chunks, and compaction on the 10Gi volume.
+    retentionSize: 8GB
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
 
     resources:
       requests:
@@ -115,6 +151,19 @@ prometheus-node-exporter:
 alertmanager:
   enabled: true
   alertmanagerSpec:
+    # Preserve silences and the notification log across pod replacements.
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
     resources:
       requests:
         cpu: 25m

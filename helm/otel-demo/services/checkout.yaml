@@ -68,15 +68,18 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL:
         value: http/protobuf
       GOMEMLIMIT:
-        value: 16MiB
+        # Leave 32Mi below the container limit for memory outside the Go runtime.
+        value: 96MiB
       OTEL_RESOURCE_ATTRIBUTES_EXTRA:
         value: service.criticality=critical
     resources:
       requests:
         cpu: 25m
-        memory: 20Mi
+        # The previous 20Mi limit caused OOMKills; reserve room for traffic bursts.
+        memory: 64Mi
       limits:
-        memory: 20Mi
+        cpu: 250m
+        memory: 128Mi
     initContainers:
     - name: wait-for-kafka
       image: busybox:latest

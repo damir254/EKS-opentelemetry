@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: monitoring
   namespace: argocd
+  annotations:
+    # Persistent monitoring volumes require gp3 from storage at wave 3.
+    argocd.argoproj.io/sync-wave: "4"
 spec:
   project: default
   sources:

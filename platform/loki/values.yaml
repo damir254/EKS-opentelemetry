@@ -58,8 +58,9 @@ singleBinary:
     size: 5Gi
     # Uses the cluster's default storage class.
     enableStatefulSetAutoDeletePVC: true
-    whenDeleted: Delete
-    whenScaled: Delete
+    # Keep log data if the StatefulSet is removed or scaled down.
+    whenDeleted: Retain
+    whenScaled: Retain
 
 backend:
   replicas: 0

@@ -78,4 +78,4 @@ To deploy from scratch:
    and register the [root Application](platform/argocd/root-application.yaml)
    to synchronize the platform and demo workloads. The `auto-mode` Application
    applies the network-policy ConfigMap and ALB classes before the demo; the
-   `storage` Application supplies the default StorageClass before Loki.
+   `storage` Application supplies the default StorageClass before monitoring and Loki.

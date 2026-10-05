@@ -4,7 +4,7 @@ metadata:
   name: loki
   namespace: argocd
   annotations:
-    # Monitoring is wave 0; the demo is wave 10.
+    # Storage is wave 3, monitoring is wave 4, and the demo is wave 10.
     argocd.argoproj.io/sync-wave: "5"
 spec:
   project: default
