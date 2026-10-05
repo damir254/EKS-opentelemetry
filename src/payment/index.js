@@ -61,7 +61,9 @@ server.bindAsync(address, grpc.ServerCredentials.createInsecure(), (err, port) =
 
 const closeGracefully = createShutdownHandler(server, healthStatus, logger)
 process.once('SIGINT', () => closeGracefully('SIGINT'))
-process.once('SIGTERM', () => closeGracefully('SIGTERM'))
+process.once('SIGTERM', () => closeGracefully('SIGTERM')) 
+
+
 
 
 
