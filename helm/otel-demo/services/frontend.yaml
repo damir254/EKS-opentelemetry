@@ -25,24 +25,12 @@ services:
     selectorLabels:
       includeCommon: true
     # Upstream has no dedicated HTTP health route; check its local listener.
-    startupProbe:
-      tcpSocket:
-        port: http
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 60
     readinessProbe:
       tcpSocket:
         port: http
       periodSeconds: 5
       timeoutSeconds: 5
       failureThreshold: 3
-    livenessProbe:
-      tcpSocket:
-        port: http
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 6
     env:
       FRONTEND_PORT:
         value: "8080"

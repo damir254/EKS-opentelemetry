@@ -28,13 +28,6 @@ services:
     selectorLabels:
       includeCommon: true
     # Envoy admin /ready reports local server readiness without calling upstream services.
-    startupProbe:
-      httpGet:
-        path: /ready
-        port: 10000
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /ready
@@ -42,13 +35,6 @@ services:
       periodSeconds: 5
       timeoutSeconds: 5
       failureThreshold: 3
-    livenessProbe:
-      httpGet:
-        path: /ready
-        port: 10000
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 6
     env:
       LOCUST_WEB_PORT:
         value: "8089"

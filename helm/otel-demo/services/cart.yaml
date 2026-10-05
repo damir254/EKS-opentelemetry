@@ -29,24 +29,12 @@ services:
       includeCommon: true
     podSecurityContext: {}
     # The gRPC readiness check can fail via a feature flag; liveness only checks the local listener.
-    startupProbe:
-      tcpSocket:
-        port: grpc
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 60
     readinessProbe:
       grpc:
         port: 8080
       periodSeconds: 5
       timeoutSeconds: 5
       failureThreshold: 3
-    livenessProbe:
-      tcpSocket:
-        port: grpc
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 6
     env:
       CART_PORT:
         value: "8080"

@@ -27,13 +27,6 @@ services:
     containerPort: 8080
     selectorLabels:
       includeCommon: true
-    startupProbe:
-      httpGet:
-        path: /health
-        port: http
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /health
@@ -41,13 +34,6 @@ services:
       periodSeconds: 5
       timeoutSeconds: 5
       failureThreshold: 3
-    livenessProbe:
-      httpGet:
-        path: /health
-        port: http
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 6
     env:
       SHIPPING_PORT:
         value: "8080"

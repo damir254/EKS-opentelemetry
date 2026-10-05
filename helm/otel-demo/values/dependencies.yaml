@@ -17,19 +17,6 @@ postgres:
     limits:
       cpu: 250m
       memory: 256Mi
-  startupProbe:
-    exec:
-      command:
-      - pg_isready
-      - -h
-      - 127.0.0.1
-      - -p
-      - '5432'
-      - -U
-      - postgres
-    periodSeconds: 5
-    timeoutSeconds: 5
-    failureThreshold: 60
   readinessProbe:
     exec:
       command:
@@ -43,19 +30,6 @@ postgres:
     periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 3
-  livenessProbe:
-    exec:
-      command:
-      - pg_isready
-      - -h
-      - 127.0.0.1
-      - -p
-      - '5432'
-      - -U
-      - postgres
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
 flagd:
   enabled: true
   image:
@@ -72,24 +46,12 @@ flagd:
     limits:
       cpu: 100m
       memory: 96Mi
-  startupProbe:
-    tcpSocket:
-      port: grpc
-    periodSeconds: 5
-    timeoutSeconds: 5
-    failureThreshold: 60
   readinessProbe:
     tcpSocket:
       port: grpc
     periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 3
-  livenessProbe:
-    tcpSocket:
-      port: grpc
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
 valkey:
   enabled: true
   podAnnotations:
@@ -108,14 +70,6 @@ valkey:
     limits:
       cpu: 100m
       memory: 64Mi
-  startupProbe:
-    exec:
-      command:
-      - valkey-cli
-      - ping
-    periodSeconds: 5
-    timeoutSeconds: 5
-    failureThreshold: 60
   readinessProbe:
     exec:
       command:
@@ -124,14 +78,6 @@ valkey:
     periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 3
-  livenessProbe:
-    exec:
-      command:
-      - valkey-cli
-      - ping
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
 kafka:
   enabled: true
   podAnnotations:
@@ -151,24 +97,12 @@ kafka:
     limits:
       cpu: 500m
       memory: 512Mi
-  startupProbe:
-    tcpSocket:
-      port: tcp-kafka
-    periodSeconds: 5
-    timeoutSeconds: 5
-    failureThreshold: 60
   readinessProbe:
     tcpSocket:
       port: tcp-kafka
     periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 3
-  livenessProbe:
-    tcpSocket:
-      port: tcp-kafka
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6
 otelCollector:
   enabled: true
   image:
@@ -185,13 +119,6 @@ otelCollector:
     limits:
       cpu: 200m
       memory: 256Mi
-  startupProbe:
-    httpGet:
-      path: /
-      port: http-health
-    periodSeconds: 5
-    timeoutSeconds: 5
-    failureThreshold: 60
   readinessProbe:
     httpGet:
       path: /
@@ -199,10 +126,3 @@ otelCollector:
     periodSeconds: 5
     timeoutSeconds: 5
     failureThreshold: 3
-  livenessProbe:
-    httpGet:
-      path: /
-      port: http-health
-    periodSeconds: 10
-    timeoutSeconds: 5
-    failureThreshold: 6

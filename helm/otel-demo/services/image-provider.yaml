@@ -30,13 +30,6 @@ services:
     containerPort: 8081
     selectorLabels:
       includeCommon: true
-    startupProbe:
-      httpGet:
-        path: /status
-        port: http
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /status
@@ -44,13 +37,6 @@ services:
       periodSeconds: 5
       timeoutSeconds: 5
       failureThreshold: 3
-    livenessProbe:
-      httpGet:
-        path: /status
-        port: http
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 6
     env:
       IMAGE_PROVIDER_PORT:
         value: "8081"

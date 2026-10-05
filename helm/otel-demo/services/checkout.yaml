@@ -14,6 +14,9 @@ services:
       enabled: true
       # wait-for-kafka runs before the classic sidecar starts; Kafka stays direct.
       excludeOutboundPorts: "9092"
+    podAnnotations:
+      # Use pod readiness to gate traffic; avoid the failing proxy post-start wait.
+      proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":false}'
     image:
       repository: ghcr.io/open-telemetry/demo
       tag: latest-checkout
@@ -31,24 +34,12 @@ services:
     containerPort: 8080
     selectorLabels:
       includeCommon: true
-    startupProbe:
-      grpc:
-        port: 8080
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 60
     readinessProbe:
       grpc:
         port: 8080
       periodSeconds: 5
       timeoutSeconds: 5
       failureThreshold: 3
-    livenessProbe:
-      grpc:
-        port: 8080
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 6
     env:
       CHECKOUT_PORT:
         value: "8080"

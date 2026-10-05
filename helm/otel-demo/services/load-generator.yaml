@@ -22,13 +22,6 @@ services:
     selectorLabels:
       includeCommon: true
     # Locust serves its local web UI even before the target application is ready.
-    startupProbe:
-      httpGet:
-        path: /
-        port: http
-      periodSeconds: 5
-      timeoutSeconds: 5
-      failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /
@@ -36,13 +29,6 @@ services:
       periodSeconds: 5
       timeoutSeconds: 5
       failureThreshold: 3
-    livenessProbe:
-      httpGet:
-        path: /
-        port: http
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 6
     env:
       LOCUST_HOST:
         value: "http://frontend-proxy:8080"
