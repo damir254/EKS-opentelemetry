@@ -3,6 +3,14 @@ crds:
 
 replicaCount: 1
 
+resources:
+  requests:
+    cpu: 25m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
 serviceAccount:
   create: true
   name: argocd-image-updater-controller

@@ -1,5 +1,21 @@
 grafana:
   enabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  sidecar:
+    # Applied to each sidecar; dashboard/datasource watchers use ~72Mi each.
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
   additionalDataSources:
     - name: Loki
       uid: loki
@@ -28,6 +44,33 @@ coreDns:
 kubeProxy:
   enabled: false
 
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  prometheusConfigReloader:
+    # The operator applies these resources to Prometheus and Alertmanager reloaders.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+  admissionWebhooks:
+    patch:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+
 prometheus:
   enabled: true
   prometheusSpec:
@@ -46,6 +89,13 @@ kubeStateMetrics:
   enabled: true
 
 kube-state-metrics:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
   # Scope project rules by the existing Helm labels, without exporting all labels.
   metricLabelsAllowlist:
     - deployments=[app.kubernetes.io/name,app.kubernetes.io/instance]
@@ -53,5 +103,23 @@ kube-state-metrics:
 nodeExporter:
   enabled: true
 
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 64Mi
+
 alertmanager:
   enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        # Preserve the operator's existing 200Mi memory reservation.
+        memory: 200Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
