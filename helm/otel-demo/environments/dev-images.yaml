@@ -11,4 +11,4 @@ services:
   payment:
     image:
       repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/payment
-      tag: "2fb4bed51e5212d38cff78c6f2cd6842b2d76a73"
+      tag: "cab2f9f5a1b1c0dc7b6c71f06959e6ac31c0bcb0"
