@@ -5,59 +5,60 @@ services:
     replicaCount: 1
     image:
       repository: ghcr.io/open-telemetry/demo
-      tag: latest-load-generator
+      # Pin the inspected Locust image; its runtime differs from the k6 config.
+      tag: latest-load-generator@sha256:630de58f7621dc104476800d36824917d3016c09aed694da33512d3dc7090b57
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true
       name: load-generator
       automount: false
-    # No listener is configured on 8080; preserve the existing placeholder.
     service:
       type: ClusterIP
-      port: 8080
-      targetPort: tcp-unused
-      portName: tcp-unused
+      port: 8089
+      targetPort: http
+      portName: http
       protocol: TCP
-    containerPort: 8080
+    containerPort: 8089
     selectorLabels:
       includeCommon: true
-    # Upstream Compose checks the k6 child process; port 8080 has no listener.
+    # Locust serves its local web UI even before the target application is ready.
     startupProbe:
-      exec:
-        command:
-        - pgrep
-        - -x
-        - k6
+      httpGet:
+        path: /
+        port: http
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 60
     readinessProbe:
-      exec:
-        command:
-        - pgrep
-        - -x
-        - k6
+      httpGet:
+        path: /
+        port: http
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 3
     livenessProbe:
-      exec:
-        command:
-        - pgrep
-        - -x
-        - k6
+      httpGet:
+        path: /
+        port: http
       periodSeconds: 10
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 6
     env:
-      LOAD_GENERATOR_VUS:
-        value: "500"
-      K6_TARGET_URL:
+      LOCUST_HOST:
         value: "http://frontend-proxy:8080"
-      K6_BROWSER_ENABLED:
+      # Keep bootstrap traffic modest; increase users after verifying capacity.
+      LOCUST_USERS:
+        value: "10"
+      LOCUST_SPAWN_RATE:
+        value: "1"
+      LOCUST_AUTOSTART:
+        value: "true"
+      LOCUST_WEB_HOST:
+        value: "0.0.0.0"
+      LOCUST_WEB_PORT:
+        value: "8089"
+      LOCUST_BROWSER_TRAFFIC_ENABLED:
         value: "false"
-      K6_BROWSER_ARGS:
-        value: "no-sandbox,disable-dev-shm-usage"
       FLAGD_HOST:
         value: "flagd"
       FLAGD_PORT:
@@ -68,14 +69,6 @@ services:
         value: "http://otel-collector:4318"
       OTEL_EXPORTER_OTLP_PROTOCOL:
         value: "http/protobuf"
-      K6_OTEL_EXPORTER_PROTOCOL:
-        value: "http/protobuf"
-      K6_OTEL_HTTP_EXPORTER_ENDPOINT:
-        value: "otel-collector:4318"
-      K6_OTEL_HTTP_EXPORTER_INSECURE:
-        value: "true"
-      K6_OTEL_METRIC_PREFIX:
-        value: "k6."
       OTEL_RESOURCE_ATTRIBUTES_EXTRA:
         value: "service.criticality=low"
     resources:

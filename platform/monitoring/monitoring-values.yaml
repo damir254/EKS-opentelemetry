@@ -36,7 +36,8 @@ prometheus:
     resources:
       requests:
         cpu: 100m
-        memory: 256Mi
+        # Observed working set is ~550Mi before traffic; leave room for ingestion.
+        memory: 768Mi
       limits:
         cpu: 500m
         memory: 1Gi

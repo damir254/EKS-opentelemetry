@@ -3,8 +3,7 @@ networkPolicy:
   enabled: true
   # Directed TCP connections: source component -> destination component -> ports.
   # Each edge renders both source egress and destination ingress.
-  # Upstream image config inspected at 604c4612c4339e5bd4fe11efa33d254f29ddfd44
-  # (the k6 implementation configured here; latest-* image tags are mutable).
+  # Match deployed listeners; load-generator is pinned to the inspected Locust image.
   connections:
     accounting:
       kafka: [9092]
@@ -50,16 +49,17 @@ networkPolicy:
       # Feature flags execute in the browser via frontend-proxy /flagservice/.
     frontend-proxy:
       frontend: [8080]
+      load-generator: [8089]
       image-provider: [8081]
       flagd: [8013]
       otel-collector: [4317, 4318] # proxy telemetry + browser /otlp-http/ route
-      # Legacy Locust/UI env vars have no deployed backend/listener here.
+      # Other optional demo UI routes have no deployed backend here.
     image-provider:
       otel-collector: [4317]
     kafka: {} # one broker/controller; KRaft quorum uses localhost:9093
     load-generator:
       frontend-proxy: [8080]
-      flagd: [8016] # k6 entrypoint/script use OFREP, not FLAGD_PORT's RPC port
+      flagd: [8016] # Locust uses OFREP, not FLAGD_PORT's RPC port
       otel-collector: [4318]
     otel-collector: {} # Loki egress is a separate cross-namespace policy.
     payment:

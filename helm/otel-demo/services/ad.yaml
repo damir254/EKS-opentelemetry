@@ -31,19 +31,19 @@ services:
       grpc:
         port: 8080
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 60
     readinessProbe:
       grpc:
         port: 8080
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 3
     livenessProbe:
       grpc:
         port: 8080
       periodSeconds: 10
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 6
     env:
       AD_PORT:

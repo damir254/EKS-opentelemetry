@@ -35,21 +35,21 @@ services:
         path: /status
         port: http
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /status
         port: http
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 3
     livenessProbe:
       httpGet:
         path: /status
         port: http
       periodSeconds: 10
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 6
     env:
       IMAGE_PROVIDER_PORT:

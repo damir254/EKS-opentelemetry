@@ -28,7 +28,7 @@ postgres:
       - -U
       - postgres
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 60
   readinessProbe:
     exec:
@@ -41,7 +41,7 @@ postgres:
       - -U
       - postgres
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 3
   livenessProbe:
     exec:
@@ -54,7 +54,7 @@ postgres:
       - -U
       - postgres
     periodSeconds: 10
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 6
 flagd:
   enabled: true
@@ -76,19 +76,19 @@ flagd:
     tcpSocket:
       port: grpc
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 60
   readinessProbe:
     tcpSocket:
       port: grpc
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 3
   livenessProbe:
     tcpSocket:
       port: grpc
     periodSeconds: 10
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 6
 valkey:
   enabled: true
@@ -114,7 +114,7 @@ valkey:
       - valkey-cli
       - ping
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 60
   readinessProbe:
     exec:
@@ -122,7 +122,7 @@ valkey:
       - valkey-cli
       - ping
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 3
   livenessProbe:
     exec:
@@ -130,7 +130,7 @@ valkey:
       - valkey-cli
       - ping
     periodSeconds: 10
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 6
 kafka:
   enabled: true
@@ -146,7 +146,8 @@ kafka:
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      # Observed working set is ~380Mi; reserve it when Auto Mode packs nodes.
+      memory: 512Mi
     limits:
       cpu: 500m
       memory: 512Mi
@@ -154,19 +155,19 @@ kafka:
     tcpSocket:
       port: tcp-kafka
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 60
   readinessProbe:
     tcpSocket:
       port: tcp-kafka
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 3
   livenessProbe:
     tcpSocket:
       port: tcp-kafka
     periodSeconds: 10
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 6
 otelCollector:
   enabled: true
@@ -189,19 +190,19 @@ otelCollector:
       path: /
       port: http-health
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 60
   readinessProbe:
     httpGet:
       path: /
       port: http-health
     periodSeconds: 5
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 3
   livenessProbe:
     httpGet:
       path: /
       port: http-health
     periodSeconds: 10
-    timeoutSeconds: 2
+    timeoutSeconds: 5
     failureThreshold: 6

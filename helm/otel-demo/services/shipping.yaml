@@ -32,21 +32,21 @@ services:
         path: /health
         port: http
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /health
         port: http
       periodSeconds: 5
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 3
     livenessProbe:
       httpGet:
         path: /health
         port: http
       periodSeconds: 10
-      timeoutSeconds: 2
+      timeoutSeconds: 5
       failureThreshold: 6
     env:
       SHIPPING_PORT:
