@@ -63,7 +63,3 @@ const closeGracefully = createShutdownHandler(server, healthStatus, logger)
 process.once('SIGINT', () => closeGracefully('SIGINT'))
 process.once('SIGTERM', () => closeGracefully('SIGTERM')) 
 
-
-
-
-
