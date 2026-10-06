@@ -74,7 +74,16 @@ output "pod_identity_role_arns" {
   value = module.iam.pod_identity_role_arns
 }
 
+output "dashboard_hosted_zone_id" {
+  description = "Retained public hosted zone used by ExternalDNS; must match its zone-id-filter."
+  value       = data.aws_route53_zone.dashboards.zone_id
+}
+
 output "update_kubeconfig_command" {
   description = "Run while authenticated as cluster_admin_role_arn. Add --role-arn only when your current identity can assume a different configured administration role."
   value       = "aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}"
+}
+output "grafana_database" {
+  description = "Grafana RDS connection details and administrator secret ARN, without passwords."
+  value       = module.grafana_database.connection
 }

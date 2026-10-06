@@ -12,7 +12,7 @@ services:
       maxUnavailable: 1
     image:
       repository: ghcr.io/open-telemetry/demo
-      tag: latest-currency
+      tag: "latest-currency@sha256:12e4b5e9d129eb49e0d8cb044f670643a5692a2d40b98d9e928c7c225ad22056"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true

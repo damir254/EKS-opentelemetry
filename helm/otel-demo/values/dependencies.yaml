@@ -7,7 +7,7 @@ postgres:
     karpenter.sh/do-not-disrupt: "true"
   image:
     repository: postgres
-    tag: "16"
+    tag: "16@sha256:65b16a8b326e0cfbdf33fa7e783f2a0cb352a61448616ccccfd616ef42aa0f65"
     pullPolicy: IfNotPresent
   port: 5432
   resources:
@@ -34,7 +34,7 @@ flagd:
   enabled: true
   image:
     repository: ghcr.io/open-feature/flagd
-    tag: v0.16.0
+    tag: "v0.16.0@sha256:32234e63c1d0634883aabd31cbd46802934aaaef0153dfd653b5d1017940bb4e"
     pullPolicy: IfNotPresent
   service:
     name: flagd
@@ -58,7 +58,7 @@ valkey:
     karpenter.sh/do-not-disrupt: "true"
   image:
     repository: ghcr.io/valkey-io/valkey
-    tag: 9.0.4-alpine3.23
+    tag: "9.0.4-alpine3.23@sha256:107b203169a20ef7c87548c157f4e4a833dbbbd20fefd3a26740b7f98ac80216"
     pullPolicy: IfNotPresent
   service:
     name: valkey-cart
@@ -84,7 +84,7 @@ kafka:
     karpenter.sh/do-not-disrupt: "true"
   image:
     repository: apache/kafka
-    tag: 4.3.1
+    tag: "4.3.1@sha256:77e3df9054047a88b520d0cc46e16696d3b22022e1d580aeccd2632df6532837"
     pullPolicy: IfNotPresent
   service:
     name: kafka
@@ -107,7 +107,7 @@ otelCollector:
   enabled: true
   image:
     repository: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib
-    tag: 0.157.0
+    tag: "0.157.0@sha256:f2f01157055a9b2aab9df7118e1f1c9abf345e99b23bc7a2bc791db374a7d0f6"
     pullPolicy: IfNotPresent
   service:
     name: otel-collector

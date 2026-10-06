@@ -1,21 +1,10 @@
 name: Infrastructure CI
 
 on:
+  # Always run: path-filtered workflows can leave required PR checks pending.
   pull_request:
-    paths:
-      - "terraform/**"
-      - "helm/**"
-      - "platform/**"
-      - ".github/workflows/**"
-      - ".github/scripts/**"
   push:
     branches: [main]
-    paths:
-      - "terraform/**"
-      - "helm/**"
-      - "platform/**"
-      - ".github/workflows/**"
-      - ".github/scripts/**"
 
 permissions:
   contents: read
@@ -26,6 +15,7 @@ concurrency:
 
 jobs:
   terraform:
+    name: Terraform validation
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -57,6 +47,7 @@ jobs:
           terraform -chdir=terraform/bootstrap validate
 
   helm-and-workflows:
+    name: Kubernetes and workflow validation
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -74,7 +65,6 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
-        
 
       - name: Install YAML parser
         run: python -m pip install -r .github/scripts/requirements.txt
@@ -96,3 +86,9 @@ jobs:
 
       - name: Lint, render, and schema-check Helm and platform YAML
         run: bash .github/scripts/validate-kubernetes.sh
+
+      - name: Test Grafana database credential initialization
+        run: python -m unittest discover -s platform/monitoring/database/tests -v
+
+      - name: Test manifest guards and image release gates
+        run: python -m unittest discover -s .github/scripts/tests -v

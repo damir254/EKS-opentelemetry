@@ -1,0 +1,8 @@
+# Must match Terraform's cluster_name plus "-grafana".
+databaseInstanceIdentifier: otel-demo-eks-grafana
+region: eu-central-1
+# Official images pinned to immutable multi-architecture manifests.
+images:
+  awsCli: public.ecr.aws/aws-cli/aws-cli@sha256:92de75724b6a746951f0e8b915d86bbccd7cb55aff96cd0cb4f7017272160780
+  python: docker.io/library/python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641
+  postgres: docker.io/library/postgres:16-bookworm@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4

@@ -8,6 +8,7 @@ on:
       - "pb/demo.proto"
       - ".github/workflows/ci-payment.yaml"
       - ".github/workflows/reusable-build-push.yaml"
+      - ".github/scripts/publish-image.sh"
 
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - "pb/demo.proto"
       - ".github/workflows/ci-payment.yaml"
       - ".github/workflows/reusable-build-push.yaml"
+      - ".github/scripts/publish-image.sh"
 
 permissions:
   contents: read

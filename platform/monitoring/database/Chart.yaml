@@ -1,0 +1,5 @@
+apiVersion: v2
+name: grafana-database
+description: Initialize Grafana's RDS login and publish its application credentials
+type: application
+version: 0.1.0

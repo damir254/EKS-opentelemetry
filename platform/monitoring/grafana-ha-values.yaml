@@ -1,0 +1,75 @@
+# Active RDS backend, initialized by the monitoring database chart before Grafana.
+grafana:
+  replicas: 2
+  deploymentStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  persistence:
+    enabled: false
+  podDisruptionBudget:
+    minAvailable: 1
+    unhealthyPodEvictionPolicy: AlwaysAllow
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+              app.kubernetes.io/instance: monitoring
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: topology.kubernetes.io/zone
+      whenUnsatisfiable: DoNotSchedule
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: grafana
+          app.kubernetes.io/instance: monitoring
+  headlessService: true
+  envValueFrom:
+    GF_SERVER_DOMAIN:
+      configMapKeyRef:
+        name: platform-dashboard-hosts
+        key: grafanaHostname
+        optional: true
+    GF_SERVER_ROOT_URL:
+      configMapKeyRef:
+        name: platform-dashboard-hosts
+        key: grafanaRootURL
+        optional: true
+    GF_SECURITY_COOKIE_SECURE:
+      configMapKeyRef:
+        name: platform-dashboard-hosts
+        key: grafanaCookieSecure
+  extraConfigmapMounts:
+    - name: rds-ca
+      configMap: grafana-rds-ca
+      mountPath: /etc/grafana/rds-ca
+      readOnly: true
+  extraSecretMounts:
+    - name: grafana-database
+      secretName: monitoring-grafana-db
+      mountPath: /etc/grafana/database
+      readOnly: true
+  grafana.ini:
+    database:
+      type: postgres
+      host: $__file{/etc/grafana/database/host}
+      name: grafana
+      user: $__file{/etc/grafana/database/username}
+      password: $__file{/etc/grafana/database/password}
+      ssl_mode: verify-full
+      ca_cert_path: /etc/grafana/rds-ca/bundle.pem
+      max_open_conn: 20
+      max_idle_conn: 5
+      migration_locking: true
+      locking_attempt_timeout_sec: 60
+    security:
+      secret_key: $__file{/etc/grafana/database/secret_key}
+      cookie_secure: true
+    unified_alerting:
+      ha_listen_address: ${POD_IP}:9094
+      ha_advertise_address: ${POD_IP}:9094
+      ha_peers: monitoring-grafana-headless.monitoring.svc.cluster.local:9094

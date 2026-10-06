@@ -1,3 +1,18 @@
+replicaCount: 2
+# Both the secrets and certificate controllers use this leader-election setting.
+leaderElect: true
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: external-secrets
+            app.kubernetes.io/instance: external-secrets
+
 serviceAccount:
   create: true
   name: external-secrets
@@ -12,6 +27,18 @@ resources:
     memory: 256Mi
 
 certController:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: external-secrets-cert-controller
+              app.kubernetes.io/instance: external-secrets
   resources:
     requests:
       cpu: 25m
@@ -21,6 +48,18 @@ certController:
       memory: 256Mi
 
 webhook:
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: external-secrets-webhook
+              app.kubernetes.io/instance: external-secrets
   resources:
     requests:
       cpu: 50m

@@ -10,6 +10,31 @@ variable "ecr_repository_arns" {
   type = list(string)
 }
 
+variable "grafana_database_arn" {
+  type        = string
+  description = "RDS instance whose endpoint and administrator secret the bootstrap Job resolves."
+}
+
+variable "grafana_admin_secret_arn" {
+  type        = string
+  description = "RDS-managed administrator secret, readable only by the bootstrap role."
+}
+
+variable "grafana_credentials_arn" {
+  type        = string
+  description = "Application secret that the bootstrap Job initializes and Grafana consumes through ESO."
+}
+
+variable "external_dns_zone_id" {
+  description = "Existing public hosted zone permitted for dashboard DNS updates."
+  type        = string
+}
+
+variable "dashboard_dns_names" {
+  description = "Dashboard hostnames whose aliases and ownership TXT records ExternalDNS may update."
+  type        = list(string)
+}
+
 variable "github_repository" {
   type = string
 

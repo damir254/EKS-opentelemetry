@@ -1,0 +1,67 @@
+{{- if .Values.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-dashboard
+  namespace: argocd
+  annotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+    external-dns.kubernetes.io/alias: "true"
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/success-codes: "200"
+spec:
+  ingressClassName: platform-dashboards
+  rules:
+    - host: {{ .Values.argocdHostname | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-dashboard
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    # ACM TLS terminates at the ALB; Grafana's service stays inside the VPC.
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    external-dns.kubernetes.io/alias: "true"
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/success-codes: "200"
+spec:
+  ingressClassName: platform-dashboards
+  rules:
+    - host: {{ .Values.grafanaHostname | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: monitoring-grafana
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-dashboard-hosts
+  namespace: monitoring
+data:
+  grafanaCookieSecure: "true"
+  grafanaHostname: {{ .Values.grafanaHostname | quote }}
+  grafanaRootURL: {{ printf "https://%s/" .Values.grafanaHostname | quote }}
+{{- end }}

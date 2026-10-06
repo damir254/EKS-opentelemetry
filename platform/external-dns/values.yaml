@@ -1,0 +1,41 @@
+provider:
+  name: aws
+sources:
+  - ingress
+domainFilters:
+  - damircloud.com
+extraArgs:
+  aws-zone-type: public
+  zone-id-filter: Z073111524AXTAZKZBUF5
+  ingress-class: platform-dashboards
+  exclude-record-types: AAAA
+managedRecordTypes:
+  - A
+# Retain records through teardown; the next cluster updates the owned aliases.
+policy: upsert-only
+registry: txt
+# Keep both values stable across destroy/recreate cycles.
+txtOwnerId: damircloud-platform-dashboards
+txtPrefix: external-dns.
+interval: 1m
+triggerLoopOnEvent: true
+replicaCount: 1
+deploymentStrategy:
+  type: Recreate
+serviceAccount:
+  create: true
+  name: external-dns
+  # Terraform grants this account Route 53 access through EKS Pod Identity.
+env:
+  - name: AWS_REGION
+    value: eu-central-1
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+livenessProbe:
+  periodSeconds: 20
+  failureThreshold: 6

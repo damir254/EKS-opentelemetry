@@ -11,9 +11,16 @@ services:
       enabled: true
       maxUnavailable: 1
     image:
-      repository: ghcr.io/open-telemetry/demo
-      tag: latest-frontend-proxy
+      # Official patched Envoy; the demo routing config is supplied by Helm.
+      repository: envoyproxy/envoy
+      tag: "v1.39.2@sha256:460f8c329f24b2e1c7c5af64cb314a6f351ad1c262ba77b135ac46b35ebd5f85"
       pullPolicy: IfNotPresent
+    mountedConfigMaps:
+      - name: frontend-proxy-config
+        mountPath: /etc/envoy
+        templateData: true
+        dataFiles:
+          envoy.yaml: files/frontend-proxy/envoy.yaml.tpl
     serviceAccount:
       create: true
       name: frontend-proxy

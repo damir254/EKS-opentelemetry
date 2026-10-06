@@ -38,11 +38,15 @@ automountServiceAccountToken: {{ .service.serviceAccount.automount }}
 {{- define "otel-demo.serviceConfigMaps" -}}
 {{- range .service.mountedConfigMaps }}
 {{- $data := deepCopy (.data | default dict) }}
+{{- $templateData := .templateData | default false }}
 {{- range $key, $path := .dataFiles }}
 {{- if hasKey $data $key }}
 {{- fail (printf "%s: ConfigMap key %s is defined in both data and dataFiles" $.name $key) }}
 {{- end }}
 {{- $content := required (printf "%s: ConfigMap file %s is missing or empty" $.name $path) ($.root.Files.Get $path) }}
+{{- if $templateData }}
+{{- $content = tpl $content $.root }}
+{{- end }}
 {{- $_ := set $data $key $content }}
 {{- end }}
 apiVersion: v1
@@ -92,6 +96,9 @@ spec:
   template:
     metadata:
       {{- $podAnnotations := deepCopy (.service.podAnnotations | default dict) }}
+      {{- if .service.mountedConfigMaps }}
+      {{- $_ := set $podAnnotations "checksum/config" (include "otel-demo.serviceConfigMaps" . | sha256sum) }}
+      {{- end }}
       {{- with $istio.excludeOutboundPorts }}
       {{- $_ := set $podAnnotations "traffic.sidecar.istio.io/excludeOutboundPorts" . }}
       {{- end }}

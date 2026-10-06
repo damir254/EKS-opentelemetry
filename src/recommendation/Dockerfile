@@ -3,10 +3,11 @@
 
 FROM python:3.13-slim-bookworm@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e AS base
 
-# DLA-4772-1 fixes PCRE2 vulnerabilities in the pinned upstream image.
+# DLA-4816-1 and DLA-4821-1 fix PCRE2 and Perl in the pinned upstream image.
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends --only-upgrade \
-      libpcre2-8-0=10.42-1+deb12u1 && \
+      libpcre2-8-0=10.42-1+deb12u2 \
+      perl-base=5.36.0-7+deb12u4 && \
     rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps

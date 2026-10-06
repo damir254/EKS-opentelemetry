@@ -54,9 +54,15 @@ variable "cluster_admin_role_arn" {
 }
 
 variable "metrics_server_version" {
-  description = "Optional exact Metrics Server add-on version. Null resolves the latest version compatible with kubernetes_version during plan; inspect addon_versions output and pin it for repeatable deployments."
+  description = "Exact Metrics Server add-on version, verified compatible with EKS 1.36 in eu-central-1 on 2026-10-06. Update explicitly when upgrading Kubernetes."
   type        = string
-  default     = null
+  default     = "v0.9.0-eksbuild.11"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+-eksbuild\\.[0-9]+$", var.metrics_server_version))
+    error_message = "Supply an exact EKS add-on version such as v0.9.0-eksbuild.11."
+  }
 }
 
 variable "ecr_force_delete" {
@@ -106,4 +112,21 @@ variable "github_oidc_provider_arn" {
   description = "Existing account-wide GitHub OIDC provider ARN, if one already exists. Null creates it; do not create duplicate providers for the same issuer."
   type        = string
   default     = null
+}
+
+variable "grafana_db_instance_class" {
+  description = "Instance size for each member of the Multi-AZ Grafana database deployment."
+  type        = string
+  default     = "db.t3.small"
+}
+
+variable "grafana_db_engine_version" {
+  description = "RDS PostgreSQL 16 version; the major version alone lets AWS select its current supported minor version."
+  type        = string
+  default     = "16"
+
+  validation {
+    condition     = can(regex("^16(\\.[0-9]+)?$", var.grafana_db_engine_version))
+    error_message = "Use PostgreSQL 16 to match the database parameter group."
+  }
 }

@@ -1,7 +1,19 @@
 installCRDs: true
 keepCRDs: true
 controller:
-  replicas: 1
+  # The pinned chart enables --leader-elect automatically for multiple replicas.
+  replicas: 2
+  pdb:
+    enabled: true
+    minAvailable: 1
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: argo-rollouts
+              app.kubernetes.io/instance: argo-rollouts
   resources:
     requests:
       cpu: 50m

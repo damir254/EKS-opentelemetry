@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "enabled": { "type": "boolean" },
+    "certificateARN": { "type": "string" },
+    "allowedCIDRs": { "type": "array", "items": { "type": "string" } },
+    "grafanaHostname": { "type": "string" },
+    "argocdHostname": { "type": "string" }
+  },
+  "required": ["enabled"],
+  "if": { "properties": { "enabled": { "const": true } } },
+  "then": {
+    "required": ["allowedCIDRs", "certificateARN", "grafanaHostname", "argocdHostname"],
+    "properties": {
+      "allowedCIDRs": {
+        "minItems": 1,
+        "items": { "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])/([0-9]|[12][0-9]|3[0-2])$" }
+      },
+      "certificateARN": { "pattern": "^arn:aws:acm:eu-central-1:[0-9]{12}:certificate/[a-f0-9-]+$" },
+      "grafanaHostname": { "minLength": 4, "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$" },
+      "argocdHostname": { "minLength": 4, "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$" }
+    }
+  }
+}

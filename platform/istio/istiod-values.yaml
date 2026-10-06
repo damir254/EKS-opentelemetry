@@ -1,6 +1,17 @@
 # Classic sidecars only: no gateway, ambient components, or Istio CNI.
 autoscaleEnabled: false
-replicaCount: 1
+replicaCount: 2
+pdb:
+  minAvailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - topologyKey: kubernetes.io/hostname
+        labelSelector:
+          matchLabels:
+            app: istiod
+            istio.io/rev: default
 resources:
   requests:
     cpu: 100m
@@ -20,6 +31,8 @@ meshConfig:
     holdApplicationUntilProxyStarts: true
     concurrency: 1
 global:
+  defaultPodDisruptionBudget:
+    enabled: true
   proxy:
     resources:
       requests:

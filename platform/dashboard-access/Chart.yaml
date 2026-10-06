@@ -1,0 +1,5 @@
+apiVersion: v2
+name: dashboard-access
+description: Restricted HTTPS access to Grafana and Argo CD through EKS Auto Mode
+type: application
+version: 0.1.0

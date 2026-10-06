@@ -15,6 +15,16 @@ locals {
       namespace       = "argocd"
       service_account = "argocd-image-updater-controller"
     }
+    external_dns = {
+      role_suffix     = "external-dns"
+      namespace       = "external-dns"
+      service_account = "external-dns"
+    }
+    grafana_db_bootstrap = {
+      role_suffix     = "grafana-db-bootstrap"
+      namespace       = "monitoring"
+      service_account = "grafana-db-bootstrap"
+    }
   }
   github_repository_parts = split("/", var.github_repository)
   github_oidc_subject = var.github_use_immutable_subject ? (
@@ -88,6 +98,71 @@ resource "aws_iam_role_policy" "image_updater" {
           "ecr:ListImages",
         ]
         Resource = var.ecr_repository_arns
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "grafana_db_bootstrap" {
+  name = "grafana-database-initialization"
+  role = aws_iam_role.pod_identity["grafana_db_bootstrap"].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["rds:DescribeDBInstances"]
+        Resource = var.grafana_database_arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = var.grafana_admin_secret_arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:PutSecretValue",
+        ]
+        Resource = var.grafana_credentials_arn
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "external_dns" {
+  name = "dashboard-dns-updates"
+  role = aws_iam_role.pod_identity["external_dns"].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ListHostedZones", "route53:ListHostedZonesByName"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ListResourceRecordSets", "route53:ListTagsForResources"]
+        Resource = "arn:${data.aws_partition.current.partition}:route53:::hostedzone/${var.external_dns_zone_id}"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ChangeResourceRecordSets"]
+        Resource = "arn:${data.aws_partition.current.partition}:route53:::hostedzone/${var.external_dns_zone_id}"
+        Condition = {
+          "ForAllValues:StringEquals" = {
+            "route53:ChangeResourceRecordSetsNormalizedRecordNames" = concat(
+              var.dashboard_dns_names,
+              # The pinned ExternalDNS release prefixes A ownership records with "a-".
+              [for name in var.dashboard_dns_names : "external-dns.a-${name}"],
+            )
+            "route53:ChangeResourceRecordSetsRecordTypes" = ["A", "TXT"]
+            "route53:ChangeResourceRecordSetsActions"     = ["CREATE", "UPSERT"]
+          }
+        }
       },
     ]
   })

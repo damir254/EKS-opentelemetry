@@ -1,5 +1,11 @@
 # Reserve observed usage plus headroom so Auto Mode can account for these pods.
 # Limits allow bursts while bounding each container's CPU and memory use.
+configs:
+  cm:
+    url: https://argocd.damircloud.com
+  params:
+    server.insecure: false
+
 controller:
   resources:
     requests:
@@ -11,6 +17,23 @@ controller:
       memory: 1536Mi
 
 server:
+  replicas: 2
+  env:
+    # Divide the shared login concurrency limit between the API replicas.
+    - name: ARGOCD_API_SERVER_REPLICAS
+      value: "2"
+  pdb:
+    enabled: true
+    minAvailable: 1
+    unhealthyPodEvictionPolicy: AlwaysAllow
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: argocd-server
+              app.kubernetes.io/instance: argocd
   service:
     type: ClusterIP
   resources:
@@ -22,6 +45,19 @@ server:
       memory: 256Mi
 
 repoServer:
+  replicas: 2
+  pdb:
+    enabled: true
+    minAvailable: 1
+    unhealthyPodEvictionPolicy: AlwaysAllow
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: argocd-repo-server
+              app.kubernetes.io/instance: argocd
   resources:
     requests:
       cpu: 100m
@@ -81,6 +117,79 @@ redis:
     limits:
       cpu: 200m
       memory: 128Mi
+
+# Redis is Argo CD's shared cache. Three Redis/Sentinel pods maintain quorum;
+# two HAProxy pods expose the current primary to all Argo CD components.
+redis-ha:
+  enabled: true
+  replicas: 3
+  existingSecret: argocd-redis
+  authKey: auth
+  hardAntiAffinity: true
+  podDisruptionBudget:
+    minAvailable: 2
+    unhealthyPodEvictionPolicy: AlwaysAllow
+  topologySpreadConstraints:
+    enabled: true
+    maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+  persistentVolume:
+    # Kubernetes/etcd holds authoritative Argo CD state; Redis is rebuildable.
+    enabled: false
+  redis:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+  sentinel:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+  splitBrainDetection:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+  init:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+  haproxy:
+    replicas: 2
+    hardAntiAffinity: true
+    podDisruptionBudget:
+      minAvailable: 1
+      unhealthyPodEvictionPolicy: AlwaysAllow
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    init:
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
 
 redisSecretInit:
   resources:

@@ -12,7 +12,7 @@ services:
       maxUnavailable: 1
     image:
       repository: ghcr.io/open-telemetry/demo
-      tag: latest-image-provider
+      tag: "latest-image-provider@sha256:eb1e9d26b72710b08c631037676c41adb9589f642e5f5fa14ea83541ae781ca9"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true

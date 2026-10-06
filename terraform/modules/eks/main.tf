@@ -120,18 +120,10 @@ resource "aws_eks_access_policy_association" "admin" {
 
 # Auto Mode manages node scaling and the infrastructure controllers. Metrics
 # Server remains a separate add-on for the application's CPU-based HPAs.
-data "aws_eks_addon_version" "metrics_server" {
-  count = var.metrics_server_version == null ? 1 : 0
-
-  addon_name         = "metrics-server"
-  kubernetes_version = var.kubernetes_version
-  most_recent        = true
-}
-
 resource "aws_eks_addon" "metrics_server" {
   cluster_name                = aws_eks_cluster.this.name
   addon_name                  = "metrics-server"
-  addon_version               = var.metrics_server_version != null ? var.metrics_server_version : data.aws_eks_addon_version.metrics_server[0].version
+  addon_version               = var.metrics_server_version
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
 }

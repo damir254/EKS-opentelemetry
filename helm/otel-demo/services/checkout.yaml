@@ -19,7 +19,7 @@ services:
       proxy.istio.io/config: '{"holdApplicationUntilProxyStarts":false}'
     image:
       repository: ghcr.io/open-telemetry/demo
-      tag: latest-checkout
+      tag: "latest-checkout@sha256:64b5d1e7ac6faf5c568acd88e9df6538af64081a1a5057ed2bdf0991d3c164ce"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true
@@ -82,7 +82,7 @@ services:
         memory: 128Mi
     initContainers:
     - name: wait-for-kafka
-      image: busybox:latest
+      image: busybox:latest@sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e
       resources:
         requests:
           cpu: 10m

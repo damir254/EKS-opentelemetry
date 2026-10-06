@@ -5,7 +5,7 @@ services:
     replicaCount: 1
     image:
       repository: ghcr.io/open-telemetry/demo
-      tag: latest-accounting
+      tag: "latest-accounting@sha256:89c4f5c43ba3996d52785f8a80da7c04da8b82b9dbe6447b4cc6ec901fee9574"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true
@@ -45,7 +45,7 @@ services:
         memory: 200Mi
     initContainers:
     - name: wait-for-kafka
-      image: busybox:latest
+      image: busybox:latest@sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e
       resources:
         requests:
           cpu: 10m

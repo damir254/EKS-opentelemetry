@@ -1,0 +1,7 @@
+# Issued ACM certificate for both dashboard names; retain it across recreation.
+enabled: true
+certificateARN: arn:aws:acm:eu-central-1:060941289716:certificate/fb5656ea-0783-4787-9d5d-2a3daf54a53b
+allowedCIDRs:
+  - 109.175.0.0/16
+grafanaHostname: grafana.damircloud.com
+argocdHostname: argocd.damircloud.com

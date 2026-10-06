@@ -16,12 +16,18 @@ spec:
         releaseName: monitoring
         valueFiles:
           - $values/platform/monitoring/monitoring-values.yaml
+          - $values/platform/monitoring/grafana-ha-values.yaml
     - repoURL: https://github.com/damir254/EKS-opentelemetry.git
       targetRevision: main
       path: platform/monitoring/resources
       directory:
         include: "*.yaml"
       ref: values
+    - repoURL: https://github.com/damir254/EKS-opentelemetry.git
+      targetRevision: main
+      path: platform/monitoring/database
+      helm:
+        releaseName: grafana-database
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -29,6 +35,12 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    retry:
+      limit: 10
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true

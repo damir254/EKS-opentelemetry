@@ -1,0 +1,43 @@
+{{- if .Values.enabled }}
+{{- if eq .Values.grafanaHostname .Values.argocdHostname }}
+{{- fail "Grafana and Argo CD require different DNS names" }}
+{{- end }}
+apiVersion: eks.amazonaws.com/v1
+kind: IngressClassParams
+metadata:
+  name: platform-dashboards
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  scheme: internet-facing
+  targetType: ip
+  ipAddressType: ipv4
+  group:
+    name: platform-dashboards
+  certificateARNs:
+    - {{ .Values.certificateARN | quote }}
+  sslPolicy: ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09
+  namespaceSelector:
+    matchExpressions:
+      - key: kubernetes.io/metadata.name
+        operator: In
+        values: [argocd, monitoring]
+  inboundCIDRs:
+    {{- toYaml .Values.allowedCIDRs | nindent 4 }}
+  listeners:
+    - port: 443
+      protocol: HTTPS
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: platform-dashboards
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  controller: eks.amazonaws.com/alb
+  parameters:
+    apiGroup: eks.amazonaws.com
+    kind: IngressClassParams
+    name: platform-dashboards
+{{- end }}

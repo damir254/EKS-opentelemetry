@@ -13,6 +13,12 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
+# DNS delegation and the ACM certificate survive runtime teardown.
+data "aws_route53_zone" "dashboards" {
+  name         = "damircloud.com."
+  private_zone = false
+}
+
 module "vpc" {
   source = "./modules/vpc"
 
@@ -39,6 +45,18 @@ module "ecr" {
   force_delete     = var.ecr_force_delete
 }
 
+# Grafana uses this shared backend; Argo CD initializes its application login.
+module "grafana_database" {
+  source = "./modules/grafana-database"
+
+  cluster_name              = var.cluster_name
+  vpc_id                    = module.vpc.vpc_id
+  private_subnet_ids        = module.vpc.private_subnet_ids
+  cluster_security_group_id = module.eks.cluster_security_group_id
+  instance_class            = var.grafana_db_instance_class
+  engine_version            = var.grafana_db_engine_version
+}
+
 module "secrets_manager" {
   source = "./modules/secrets-manager"
 
@@ -46,6 +64,7 @@ module "secrets_manager" {
     "postgres-admin-password",
     "astronomy-db-password",
     "monitoring-db-password",
+    "grafana-db-credentials",
     "product-catalog-db-connection-string",
     "accounting-db-connection-string",
     "argocd-image-updater-git-ssh-key",
@@ -59,6 +78,11 @@ module "iam" {
   cluster_name                 = module.eks.cluster_name
   secret_arns                  = values(module.secrets_manager.secret_arns)
   ecr_repository_arns          = values(module.ecr.repository_arns)
+  grafana_database_arn         = module.grafana_database.arn
+  grafana_admin_secret_arn     = module.grafana_database.connection.admin_secret_arn
+  grafana_credentials_arn      = module.secrets_manager.secret_arns["grafana-db-credentials"]
+  external_dns_zone_id         = data.aws_route53_zone.dashboards.zone_id
+  dashboard_dns_names          = ["argocd.damircloud.com", "grafana.damircloud.com"]
   github_repository            = "damir254/EKS-opentelemetry"
   github_owner_id              = var.github_owner_id
   github_repository_id         = var.github_repository_id

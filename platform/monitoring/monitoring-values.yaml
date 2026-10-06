@@ -1,27 +1,16 @@
 grafana:
   enabled: true
-  # A single Grafana instance owns the SQLite database on its RWO volume.
-  deploymentStrategy:
-    type: Recreate
+  grafana.ini:
+    server:
+      domain: grafana.damircloud.com
+      root_url: https://grafana.damircloud.com/
+    security:
+      cookie_secure: true
+    auth.anonymous:
+      enabled: false
+  # Database and availability settings come from grafana-ha-values.yaml.
   persistence:
-    enabled: true
-    type: pvc
-    storageClassName: gp3
-    accessModes:
-      - ReadWriteOnce
-    size: 2Gi
-    annotations:
-      # Preserve the claim if the Application or chart is removed.
-      argocd.argoproj.io/sync-options: Prune=false,Delete=false
-      helm.sh/resource-policy: keep
-  initChownData:
-    resources:
-      requests:
-        cpu: 25m
-        memory: 32Mi
-      limits:
-        cpu: 100m
-        memory: 64Mi
+    enabled: false
   resources:
     requests:
       cpu: 100m
@@ -95,7 +84,21 @@ prometheusOperator:
 
 prometheus:
   enabled: true
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+    unhealthyPodEvictionPolicy: AlwaysAllow
+  service:
+    # Replicas scrape independently; keep a client on one replica for consistent queries.
+    sessionAffinity: ClientIP
+    sessionAffinityConfig:
+      clientIP:
+        timeoutSeconds: 10800
   prometheusSpec:
+    replicas: 2
+    podAntiAffinity: hard
+    podAntiAffinityTopologyKey: kubernetes.io/hostname
+    replicaExternalLabelName: prometheus_replica
     retention: 7d
     # Leave space for the WAL, head chunks, and compaction on the 10Gi volume.
     retentionSize: 8GB
@@ -150,7 +153,15 @@ prometheus-node-exporter:
 
 alertmanager:
   enabled: true
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+    unhealthyPodEvictionPolicy: AlwaysAllow
   alertmanagerSpec:
+    # The operator configures the gossip cluster when replicas exceeds one.
+    replicas: 2
+    podAntiAffinity: hard
+    podAntiAffinityTopologyKey: kubernetes.io/hostname
     # Preserve silences and the notification log across pod replacements.
     storage:
       volumeClaimTemplate:

@@ -12,7 +12,7 @@ services:
       maxUnavailable: 1
     image:
       repository: ghcr.io/open-telemetry/demo
-      tag: latest-quote
+      tag: "latest-quote@sha256:7604edde1818fce17f3a5b785ddfe43a4361a0673f55ac15aeb15c10ce227c0d"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true

@@ -17,7 +17,8 @@ spec:
           imageName: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/product-catalog
           commonUpdateSettings:
             updateStrategy: newest-build
-            allowTags: "regexp:^[0-9a-f]{40}$"
+            # CI creates this tag only after scanning and signature verification.
+            allowTags: "regexp:^release-[0-9a-f]{40}$"
           manifestTargets:
             helm:
               name: services.product-catalog.image.repository
@@ -26,7 +27,7 @@ spec:
           imageName: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/payment
           commonUpdateSettings:
             updateStrategy: newest-build
-            allowTags: "regexp:^[0-9a-f]{40}$"
+            allowTags: "regexp:^release-[0-9a-f]{40}$"
           manifestTargets:
             helm:
               name: services.payment.image.repository
@@ -35,7 +36,7 @@ spec:
           imageName: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/recommendation
           commonUpdateSettings:
             updateStrategy: newest-build
-            allowTags: "regexp:^[0-9a-f]{40}$"
+            allowTags: "regexp:^release-[0-9a-f]{40}$"
           manifestTargets:
             helm:
               name: services.recommendation.image.repository

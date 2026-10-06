@@ -9,7 +9,7 @@ services:
       hostname: true
     image:
       repository: ghcr.io/open-telemetry/demo
-      tag: latest-frontend
+      tag: "latest-frontend@sha256:fa5bc2b0355cb758855cf6834b79a64a2839547bf2b9dc6c01064c067130e358"
       pullPolicy: IfNotPresent
     serviceAccount:
       create: true
