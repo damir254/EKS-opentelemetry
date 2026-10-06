@@ -13,7 +13,7 @@ data:
     local dependencies = {
       ["auto-mode"] = true,
       ["istio-base"] = true, ["istiod"] = true, ["argo-rollouts"] = true,
-      ["storage"] = true
+      ["external-secrets"] = true, ["storage"] = true
     }
     if not dependencies[obj.metadata.name] then
       return { status = "Healthy", message = "No platform dependency gate" }
