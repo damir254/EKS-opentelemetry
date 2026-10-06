@@ -55,6 +55,8 @@ module "grafana_database" {
   cluster_security_group_id = module.eks.cluster_security_group_id
   instance_class            = var.grafana_db_instance_class
   engine_version            = var.grafana_db_engine_version
+  multi_az                  = var.grafana_db_multi_az
+  backup_retention_days     = var.grafana_db_backup_retention_days
 }
 
 module "secrets_manager" {

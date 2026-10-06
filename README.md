@@ -1,5 +1,7 @@
 ![Amazon EKS platform architecture: GitOps delivery, Auto Mode workloads, HTTPS dashboards and persistent monitoring](docs/architecture.png)
 
+The diagram shows the optional Multi-AZ database; the current Free plan configuration uses Single-AZ RDS.
+
 # Amazon EKS Platform with Terraform and GitOps
 
 An AWS platform for running the OpenTelemetry demo and practicing automated
@@ -19,7 +21,7 @@ delivery, progressive rollouts and observability. The configuration targets
   Argo Rollouts and Istio for canary releases checked by Prometheus.
 - **Observability:** OpenTelemetry feeds Prometheus metrics and Loki logs;
   Grafana provides dashboards and alerts. Monitoring data uses encrypted EBS
-  volumes. Two Grafana replicas share a private Multi-AZ RDS PostgreSQL database
+  volumes. Two Grafana replicas share a private Single-AZ RDS PostgreSQL database
   for settings, users and dashboards.
 - **Access and availability:** Grafana and Argo CD use a shared HTTPS ALB with
   ACM certificates, a CIDR allowlist and Route 53 records managed by ExternalDNS.
@@ -38,6 +40,11 @@ To bootstrap, configure AWS/GitHub inputs, apply Terraform, populate the demo
 secrets and initial images, then install Argo CD with the repository values and
 apply its root Application. GitOps initializes Grafana's database login and
 deploys the remaining platform.
+
+Grafana RDS defaults to `db.t3.micro`, 20 GiB of `gp2` storage with autoscaling
+disabled, and one day of automatic backups. Single-AZ database outages can affect
+both Grafana replicas. See [RDS settings](docs/grafana-rds.md) for configuration
+and the Paid plan availability option.
 
 This is a development/portfolio environment. Demo PostgreSQL, Kafka and Valkey
 data are ephemeral; the demo ingress uses public HTTP. Keycloak integration is

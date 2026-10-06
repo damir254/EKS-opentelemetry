@@ -115,9 +115,26 @@ variable "github_oidc_provider_arn" {
 }
 
 variable "grafana_db_instance_class" {
-  description = "Instance size for each member of the Multi-AZ Grafana database deployment."
+  description = "Grafana RDS instance class. The AWS Free plan supports db.t3.micro and db.t4g.micro; larger classes require a Paid plan."
   type        = string
-  default     = "db.t3.small"
+  default     = "db.t3.micro"
+}
+
+variable "grafana_db_multi_az" {
+  description = "Create a standby database for failover. Keep false on the AWS Free plan; enabling this requires a Paid plan."
+  type        = bool
+  default     = false
+}
+
+variable "grafana_db_backup_retention_days" {
+  description = "Days of automatic Grafana database backups. Defaults to one day for the Free plan; 0 disables backups."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.grafana_db_backup_retention_days >= 0 && var.grafana_db_backup_retention_days <= 35 && floor(var.grafana_db_backup_retention_days) == var.grafana_db_backup_retention_days
+    error_message = "Use a whole number of days between 0 and 35; the AWS Free plan has a lower maximum than Paid plans."
+  }
 }
 
 variable "grafana_db_engine_version" {

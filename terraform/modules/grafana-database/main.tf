@@ -36,6 +36,7 @@ resource "aws_db_parameter_group" "grafana" {
   }
 }
 
+# Keep storage at 20 GiB instead of automatically growing beyond the free allowance.
 resource "aws_db_instance" "grafana" {
   identifier                      = "${var.cluster_name}-grafana"
   engine                          = "postgres"
@@ -48,15 +49,15 @@ resource "aws_db_instance" "grafana" {
   vpc_security_group_ids          = [aws_security_group.grafana.id]
   parameter_group_name            = aws_db_parameter_group.grafana.name
   publicly_accessible             = false
-  multi_az                        = true
-  storage_type                    = "gp3"
+  multi_az                        = var.multi_az
+  storage_type                    = "gp2"
   allocated_storage               = 20
-  max_allocated_storage           = 100
+  max_allocated_storage           = 0
   storage_encrypted               = true
   ca_cert_identifier              = "rds-ca-rsa2048-g1"
   auto_minor_version_upgrade      = true
   apply_immediately               = false
-  backup_retention_period         = 7
+  backup_retention_period         = var.backup_retention_days
   copy_tags_to_snapshot           = true
   deletion_protection             = true
   skip_final_snapshot             = false
