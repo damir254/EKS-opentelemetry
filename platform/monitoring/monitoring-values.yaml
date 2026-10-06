@@ -14,7 +14,7 @@ grafana:
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 512Mi
     limits:
       cpu: 500m
       memory: 512Mi
@@ -23,7 +23,7 @@ grafana:
     resources:
       requests:
         cpu: 25m
-        memory: 128Mi
+        memory: 96Mi
       limits:
         cpu: 100m
         memory: 256Mi
@@ -59,7 +59,7 @@ prometheusOperator:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 64Mi
     limits:
       cpu: 500m
       memory: 256Mi
@@ -178,8 +178,8 @@ alertmanager:
     resources:
       requests:
         cpu: 25m
-        # Preserve the operator's existing 200Mi memory reservation.
-        memory: 200Mi
+        # Observed peak is ~20Mi; leave room for active alerts and gossip.
+        memory: 64Mi
       limits:
         cpu: 200m
         memory: 256Mi

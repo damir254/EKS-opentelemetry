@@ -52,8 +52,8 @@ services:
         value: service.criticality=medium
     resources:
       requests:
-        cpu: 500m
-        memory: 512Mi
+        cpu: 200m
+        memory: 384Mi
       limits:
         cpu: 500m
         memory: 512Mi

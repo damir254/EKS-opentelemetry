@@ -9,8 +9,8 @@ configs:
 controller:
   resources:
     requests:
-      cpu: 100m
-      # The application controller currently uses ~650Mi.
+      cpu: 250m
+      # Observed memory peak is ~724Mi; retain reconciliation headroom.
       memory: 1Gi
     limits:
       cpu: "1"
@@ -61,7 +61,7 @@ repoServer:
   resources:
     requests:
       cpu: 100m
-      memory: 256Mi
+      memory: 128Mi
     limits:
       cpu: "1"
       memory: 512Mi
@@ -78,7 +78,7 @@ applicationSet:
   resources:
     requests:
       cpu: 50m
-      memory: 128Mi
+      memory: 64Mi
     limits:
       cpu: 250m
       memory: 256Mi
@@ -141,7 +141,7 @@ redis-ha:
     resources:
       requests:
         cpu: 25m
-        memory: 128Mi
+        memory: 64Mi
       limits:
         cpu: 250m
         memory: 256Mi
@@ -178,7 +178,7 @@ redis-ha:
     resources:
       requests:
         cpu: 25m
-        memory: 32Mi
+        memory: 128Mi
       limits:
         cpu: 200m
         memory: 128Mi

@@ -53,7 +53,7 @@ services:
     resources:
       requests:
         cpu: 50m
-        memory: 160Mi
+        memory: 96Mi
       limits:
         memory: 160Mi
     securityContext: {}

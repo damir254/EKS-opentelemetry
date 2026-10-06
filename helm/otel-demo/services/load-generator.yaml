@@ -58,9 +58,10 @@ services:
       OTEL_RESOURCE_ATTRIBUTES_EXTRA:
         value: "service.criticality=low"
     resources:
+      # Requests are sized for the current ten users; revisit when raising load.
       requests:
-        cpu: 250m
-        memory: 512Mi
+        cpu: 50m
+        memory: 128Mi
       limits:
         memory: 512Mi
     securityContext:
