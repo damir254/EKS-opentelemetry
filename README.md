@@ -1,3 +1,5 @@
+![Amazon EKS platform architecture: GitOps delivery, Auto Mode workloads, HTTPS dashboards and persistent monitoring](docs/architecture.png)
+
 # Amazon EKS Platform with Terraform and GitOps
 
 An AWS platform for running the OpenTelemetry demo and practicing automated
