@@ -3,6 +3,19 @@
 configs:
   cm:
     url: https://argocd.damircloud.com
+    admin.enabled: "true"
+    oidc.config: |
+      name: Keycloak
+      issuer: https://auth.damircloud.com/realms/platform
+      clientID: argocd
+      enablePKCEAuthentication: true
+      requestedScopes: [openid, profile, email, groups]
+  rbac:
+    policy.default: ""
+    scopes: '[groups]'
+    policy.csv: |
+      g, platform-admins, role:admin
+      g, platform-viewers, role:readonly
   params:
     server.insecure: false
 
@@ -93,6 +106,7 @@ notifications:
       memory: 128Mi
 
 dex:
+  enabled: false
   resources:
     requests:
       cpu: 25m

@@ -25,6 +25,11 @@ locals {
       namespace       = "monitoring"
       service_account = "grafana-db-bootstrap"
     }
+    keycloak_db_bootstrap = {
+      role_suffix     = "keycloak-db-bootstrap"
+      namespace       = "identity"
+      service_account = "keycloak-db-bootstrap"
+    }
   }
   github_repository_parts = split("/", var.github_repository)
   github_oidc_subject = var.github_use_immutable_subject ? (
@@ -127,6 +132,31 @@ resource "aws_iam_role_policy" "grafana_db_bootstrap" {
           "secretsmanager:PutSecretValue",
         ]
         Resource = var.grafana_credentials_arn
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "keycloak_db_bootstrap" {
+  name = "keycloak-database-initialization"
+  role = aws_iam_role.pod_identity["keycloak_db_bootstrap"].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["rds:DescribeDBInstances"]
+        Resource = var.grafana_database_arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:GetSecretValue"]
+        Resource = var.grafana_admin_secret_arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue", "secretsmanager:PutSecretValue"]
+        Resource = var.keycloak_credentials_arn
       },
     ]
   })

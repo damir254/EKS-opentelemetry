@@ -36,3 +36,15 @@ variable "backup_retention_days" {
     error_message = "Backup retention must be a whole number between 0 and 35 days."
   }
 }
+
+variable "snapshot_identifier" {
+  description = "Snapshot to restore when creating the shared RDS instance; null creates an empty database."
+  type        = string
+  default     = null
+}
+
+variable "deletion_protection" {
+  description = "Disable only for an intentional, backed-up teardown."
+  type        = bool
+  default     = true
+}

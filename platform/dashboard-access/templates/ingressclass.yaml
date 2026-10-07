@@ -21,7 +21,7 @@ spec:
     matchExpressions:
       - key: kubernetes.io/metadata.name
         operator: In
-        values: [argocd, monitoring, dev]
+        values: [argocd, monitoring, dev, identity]
   inboundCIDRs:
     # The demo is public; dashboard/Locust rules enforce their own CIDRs.
     - 0.0.0.0/0

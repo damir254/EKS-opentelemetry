@@ -133,6 +133,12 @@ class CredentialPreparationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             bootstrap.prepare(self.directory)
 
+    def test_restore_can_omit_database_name_metadata(self):
+        self.database["database"] = None
+        self.write_inputs(self.existing)
+        bootstrap.prepare(self.directory)
+        self.assertEqual(self.credentials()["password"], self.existing["password"])
+
 
 if __name__ == "__main__":
     unittest.main()

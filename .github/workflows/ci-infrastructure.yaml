@@ -93,5 +93,11 @@ jobs:
       - name: Test manifest guards and image release gates
         run: python -m unittest discover -s .github/scripts/tests -v
 
+      - name: Test Keycloak credential continuity and realm reconciliation
+        run: python -m unittest discover -s platform/keycloak/tests -v
+
+      - name: Test Keycloak startup and database isolation
+        run: python .github/scripts/test-keycloak.py
+
       - name: Test browser telemetry with pinned Envoy and Collector
         run: python .github/scripts/test-browser-telemetry.py

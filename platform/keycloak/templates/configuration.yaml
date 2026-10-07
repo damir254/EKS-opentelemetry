@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak-db-bootstrap
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-db-bootstrap
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+data:
+  {{- range $name := list "fetch.sh" "prepare.py" "initialize.sh" "publish.sh" }}
+  {{ $name }}: |
+    {{- $.Files.Get (printf "scripts/%s" $name) | nindent 4 }}
+  {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm-configuration
+  annotations:
+    argocd.argoproj.io/sync-wave: "-3"
+data:
+  configure.py: |
+    {{- .Files.Get "scripts/configure.py" | nindent 4 }}
+  realm.json: |
+    {{- .Files.Get "realm.json" | nindent 4 }}
+---
+{{ .Files.Get "files/rds-ca.yaml" }}

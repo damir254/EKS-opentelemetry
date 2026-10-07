@@ -7,12 +7,13 @@
     "certificateARNs": { "type": "array", "items": { "type": "string" } },
     "allowedCIDRs": { "type": "array", "items": { "type": "string" } },
     "grafanaHostname": { "type": "string" },
-    "argocdHostname": { "type": "string" }
+    "argocdHostname": { "type": "string" },
+    "keycloakHostname": { "type": "string" }
   },
   "required": ["enabled"],
   "if": { "properties": { "enabled": { "const": true } } },
   "then": {
-    "required": ["allowedCIDRs", "certificateARNs", "grafanaHostname", "argocdHostname"],
+    "required": ["allowedCIDRs", "certificateARNs", "grafanaHostname", "argocdHostname", "keycloakHostname"],
     "properties": {
       "allowedCIDRs": {
         "minItems": 1,
@@ -25,7 +26,8 @@
         "items": { "pattern": "^arn:aws:acm:eu-central-1:[0-9]{12}:certificate/[a-f0-9-]+$" }
       },
       "grafanaHostname": { "minLength": 4, "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$" },
-      "argocdHostname": { "minLength": 4, "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$" }
+      "argocdHostname": { "minLength": 4, "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$" },
+      "keycloakHostname": { "minLength": 4, "pattern": "^([a-z0-9]([a-z0-9-]*[a-z0-9])?\\.)+[a-z]{2,}$" }
     }
   }
 }

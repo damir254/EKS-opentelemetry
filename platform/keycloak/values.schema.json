@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["databaseInstanceIdentifier", "region", "hostname", "replicas", "images", "resources"],
+  "properties": {
+    "databaseInstanceIdentifier": {"type": "string", "minLength": 1},
+    "region": {"const": "eu-central-1"},
+    "hostname": {"type": "string", "pattern": "^([a-z0-9-]+\\.)+[a-z]{2,}$"},
+    "replicas": {"type": "integer", "minimum": 2},
+    "images": {
+      "type": "object", "additionalProperties": false,
+      "required": ["keycloak", "awsCli", "python", "postgres"],
+      "properties": {
+        "keycloak": {"type": "string", "pattern": "@sha256:[a-f0-9]{64}$"},
+        "awsCli": {"type": "string", "pattern": "@sha256:[a-f0-9]{64}$"},
+        "python": {"type": "string", "pattern": "@sha256:[a-f0-9]{64}$"},
+        "postgres": {"type": "string", "pattern": "@sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "resources": {
+      "type": "object", "additionalProperties": false, "required": ["requests", "limits"],
+      "properties": {
+        "requests": {"type": "object", "required": ["cpu", "memory", "ephemeral-storage"]},
+        "limits": {"type": "object", "required": ["cpu", "memory", "ephemeral-storage"]}
+      }
+    }
+  }
+}

@@ -25,7 +25,12 @@ delivery, progressive rollouts and observability. The configuration targets
   Grafana provides dashboards and alerts. Monitoring data uses encrypted EBS
   volumes. Two Grafana replicas share a private Single-AZ RDS PostgreSQL database
   for settings, users and dashboards.
-- **Access and availability:** One HTTPS ALB serves Grafana, Argo CD, the demo
+- **Identity:** Keycloak supplies OIDC login and MFA for Grafana and Argo CD.
+  Two Keycloak replicas use a separate database and login on the existing RDS
+  instance. Realm/client configuration is reconciled from Git; credentials stay
+  in Secrets Manager. Encrypted snapshots preserve identity and Grafana settings
+  across environment teardown and recreation.
+- **Access and availability:** One HTTPS ALB serves Grafana, Argo CD, Keycloak, the demo
   and Locust, with ACM certificates and Route 53 records managed by ExternalDNS.
   The demo uses `https://demo.damircloud.com`; Locust uses
   `https://loadgen.damircloud.com`. Dashboard and Locust listener rules restrict
@@ -47,14 +52,13 @@ with `-var='enable_metrics_server=false'`. Populate the demo secrets and initial
 images, configure kubeconfig and run `bash platform/auto-mode/bootstrap.sh`.
 Apply Terraform again with the default add-on setting. Then install Argo CD with
 the repository values and apply its root Application. GitOps initializes
-Grafana's database login and deploys the remaining platform.
+Grafana and Keycloak database logins and deploys the remaining platform.
 
 Grafana RDS defaults to `db.t3.micro`, 20 GiB of `gp2` storage with autoscaling
 disabled, and one day of automatic backups. Single-AZ database outages can affect
-both Grafana replicas. See [RDS settings](docs/grafana-rds.md) for configuration
-and the Paid plan availability option.
+Grafana and Keycloak. Use bounded connection pools and monitor database capacity;
+Multi-AZ remains an optional Paid plan availability upgrade.
 
 This is a development/portfolio environment. Demo PostgreSQL, Kafka and Valkey
-data are ephemeral. Keycloak integration is
-planned, and traces currently produce metrics/debug output without a searchable
-trace backend. Review the current deployment blockers before starting AWS resources.
+data are ephemeral. Traces currently produce metrics/debug output without a searchable
+trace backend.

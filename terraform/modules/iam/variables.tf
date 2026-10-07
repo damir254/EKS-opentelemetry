@@ -25,6 +25,11 @@ variable "grafana_credentials_arn" {
   description = "Application secret that the bootstrap Job initializes and Grafana consumes through ESO."
 }
 
+variable "keycloak_credentials_arn" {
+  type        = string
+  description = "Keycloak database, bootstrap and OIDC credentials maintained by its scoped bootstrap Job."
+}
+
 variable "external_dns_zone_id" {
   description = "Existing public hosted zone permitted for platform DNS updates."
   type        = string

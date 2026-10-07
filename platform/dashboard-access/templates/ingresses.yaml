@@ -67,4 +67,39 @@ data:
   grafanaCookieSecure: "true"
   grafanaHostname: {{ .Values.grafanaHostname | quote }}
   grafanaRootURL: {{ printf "https://%s/" .Values.grafanaHostname | quote }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak-access
+  namespace: identity
+  annotations:
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/conditions.keycloak-admin: {{ $sourceCondition | quote }}
+    alb.ingress.kubernetes.io/healthcheck-path: /realms/master
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    external-dns.kubernetes.io/alias: "true"
+spec:
+  ingressClassName: platform-dashboards
+  rules:
+    - host: {{ .Values.keycloakHostname | quote }}
+      http:
+        paths:
+          # Application OIDC endpoints must work for browsers and server-side clients.
+          - path: /realms/platform/
+            pathType: Prefix
+            backend:
+              service: {name: keycloak, port: {number: 8080}}
+          - path: /resources/
+            pathType: Prefix
+            backend:
+              service: {name: keycloak, port: {number: 8080}}
+          # Admin APIs, master-realm login and all other paths require the operator CIDR.
+          - path: /
+            pathType: Prefix
+            backend:
+              service: {name: keycloak-admin, port: {number: 8080}}
 {{- end }}

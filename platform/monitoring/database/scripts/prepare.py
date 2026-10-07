@@ -39,7 +39,9 @@ def prepare(directory):
     existing = json.loads((directory / "existing.json").read_text())
     if not all(isinstance(value, dict) for value in (database, admin, existing)):
         raise ValueError("Database metadata and credentials must be JSON objects")
-    if database["status"] != "available" or database["database"] != "grafana":
+    # Restored PostgreSQL instances can omit DBName from RDS metadata. The
+    # initialization connection still explicitly requires the grafana database.
+    if database["status"] != "available" or database["database"] not in ("grafana", None):
         raise ValueError("Unexpected database or database not yet available")
     host = database["host"]
     port = database["port"]

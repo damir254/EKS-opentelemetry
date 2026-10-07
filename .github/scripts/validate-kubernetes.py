@@ -237,8 +237,8 @@ def validate_shared_alb(resources):
         raise ValueError("The shared ALB must attach its configured dashboard and demo certificates")
     selector = spec.get("namespaceSelector", {}).get("matchExpressions", [])
     if selector != [{"key": "kubernetes.io/metadata.name", "operator": "In",
-                     "values": ["argocd", "monitoring", "dev"]}]:
-        raise ValueError("Only the approved platform/demo namespaces may join the shared ALB")
+                     "values": ["argocd", "monitoring", "dev", "identity"]}]:
+        raise ValueError("Only the approved platform/demo/identity namespaces may join the shared ALB")
     classes = [item for item in resources if item.get("kind") == "IngressClass"
                and item["spec"].get("controller") == "eks.amazonaws.com/alb"]
     if (len(classes) != 1 or classes[0]["metadata"]["name"] != "platform-dashboards"
@@ -263,6 +263,62 @@ def validate_shared_alb(resources):
     for item in resources:
         if item.get("kind") == "Ingress" and item["spec"].get("ingressClassName") != "platform-dashboards":
             raise ValueError("Every platform/demo Ingress must use the shared ALB class")
+
+
+def validate_keycloak(resources):
+    """Prevent public admin/management exposure and accidental OIDC client weakening."""
+    settings = documents(ROOT / "platform/dashboard-access/values.yaml")[0]
+    keycloak_values = documents(ROOT / "platform/keycloak/values.yaml")[0]
+    realm = json.loads((ROOT / "platform/keycloak/realm.json").read_text())
+    if keycloak_values["hostname"] != settings["keycloakHostname"] or realm["realm"] != "platform":
+        raise ValueError("Keycloak's hostname and application realm must match shared access configuration")
+    if realm.get("registrationAllowed") or not realm.get("bruteForceProtected"):
+        raise ValueError("Keycloak requires closed registration and brute-force protection")
+    clients = {item["clientId"]: item for item in realm["clients"]}
+    callbacks = {
+        "argocd": {f'https://{settings["argocdHostname"]}/auth/callback',
+                   f'https://{settings["argocdHostname"]}/pkce/verify', 'http://localhost:8085/auth/callback'},
+        "grafana": {f'https://{settings["grafanaHostname"]}/login/generic_oauth'},
+    }
+    for name, expected in callbacks.items():
+        client = clients[name]
+        if (set(client["redirectUris"]) != expected or client.get("directAccessGrantsEnabled")
+                or client.get("implicitFlowEnabled") or client.get("fullScopeAllowed")
+                or client["attributes"].get("pkce.code.challenge.method") != "S256"):
+            raise ValueError("Dashboard clients require exact callbacks, PKCE and restricted scopes")
+    ingress = next(item for item in resources if item.get("kind") == "Ingress"
+                   and item["metadata"]["name"] == "keycloak-access")
+    if ingress["metadata"]["namespace"] != "identity" or len(ingress["spec"]["rules"]) != 1:
+        raise ValueError("Keycloak requires its own identity namespace and explicit host")
+    rule = ingress["spec"]["rules"][0]
+    paths = rule["http"]["paths"]
+    expected_paths = {"/realms/platform/": "keycloak", "/resources/": "keycloak", "/": "keycloak-admin"}
+    if (rule["host"] != settings["keycloakHostname"] or len(paths) != len(expected_paths)
+            or {path["path"]: path["backend"]["service"]["name"] for path in paths} != expected_paths
+            or any(path["backend"]["service"]["port"] != {"number": 8080} for path in paths)):
+        raise ValueError("Expose only application realm/resources publicly; route all other paths to restricted admin")
+    condition = ingress["metadata"]["annotations"].get("alb.ingress.kubernetes.io/conditions.keycloak-admin", "[]")
+    if json.loads(condition) != [{"field": "source-ip", "sourceIpConfig": {"values": settings["allowedCIDRs"]}}]:
+        raise ValueError("Keycloak administration requires the operator source-IP condition")
+    for item in resources:
+        if item.get("kind") == "Ingress" and item is not ingress:
+            for other_rule in item["spec"].get("rules", []):
+                for path in other_rule["http"]["paths"]:
+                    if path["backend"].get("service", {}).get("name") in {"keycloak", "keycloak-admin"}:
+                        raise ValueError("Another Ingress must not bypass Keycloak's access restrictions")
+    deployment = next(item for item in resources if item.get("kind") == "Deployment"
+                      and item["metadata"]["name"] == "keycloak")
+    if deployment["spec"]["replicas"] < 2:
+        raise ValueError("Keycloak needs two replicas for node replacement availability")
+    container = deployment["spec"]["template"]["spec"]["containers"][0]
+    fields = {item["name"]: item for item in container["env"]}
+    for name in ["KC_DB_PASSWORD", "KC_BOOTSTRAP_ADMIN_CLIENT_SECRET"]:
+        if "secretKeyRef" not in fields[name].get("valueFrom", {}):
+            raise ValueError("Keycloak credentials must be provided by external Secrets")
+    policy = next(item for item in resources if item.get("kind") == "NetworkPolicy"
+                  and item["metadata"]["name"] == "keycloak")
+    if {"ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]} not in policy["spec"]["egress"]:
+        raise ValueError("Keycloak must permit Auto Mode's node DNS resolvers on TCP/UDP 53")
 
 
 def validate(work, argocd_version, image_inventory=None):
@@ -367,6 +423,7 @@ def validate(work, argocd_version, image_inventory=None):
     validate_grafana_admin(resources)
     validate_demo_access(resources)
     validate_shared_alb(resources)
+    validate_keycloak(resources)
     if image_inventory:
         image_inventory.parent.mkdir(parents=True, exist_ok=True)
         inventory = public_images(resources)

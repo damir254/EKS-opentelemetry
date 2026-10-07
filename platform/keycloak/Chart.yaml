@@ -1,0 +1,6 @@
+apiVersion: v2
+name: platform-keycloak
+description: Keycloak SSO with an isolated database on the shared RDS instance
+type: application
+version: 0.1.0
+appVersion: "26.8.0"

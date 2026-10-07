@@ -59,6 +59,8 @@ module "grafana_database" {
   engine_version            = var.grafana_db_engine_version
   multi_az                  = var.grafana_db_multi_az
   backup_retention_days     = var.grafana_db_backup_retention_days
+  snapshot_identifier       = var.grafana_db_snapshot_identifier
+  deletion_protection       = var.grafana_db_deletion_protection
 }
 
 module "secrets_manager" {
@@ -69,6 +71,7 @@ module "secrets_manager" {
     "astronomy-db-password",
     "monitoring-db-password",
     "grafana-db-credentials",
+    "keycloak-credentials",
     "product-catalog-db-connection-string",
     "accounting-db-connection-string",
     "argocd-image-updater-git-ssh-key",
@@ -85,8 +88,9 @@ module "iam" {
   grafana_database_arn         = module.grafana_database.arn
   grafana_admin_secret_arn     = module.grafana_database.connection.admin_secret_arn
   grafana_credentials_arn      = module.secrets_manager.secret_arns["grafana-db-credentials"]
+  keycloak_credentials_arn     = module.secrets_manager.secret_arns["keycloak-credentials"]
   external_dns_zone_id         = data.aws_route53_zone.dashboards.zone_id
-  dashboard_dns_names          = concat(["argocd.damircloud.com", "grafana.damircloud.com"], local.demo_dns_names)
+  dashboard_dns_names          = concat(["argocd.damircloud.com", "grafana.damircloud.com", local.keycloak_hostname], local.demo_dns_names)
   github_repository            = "damir254/EKS-opentelemetry"
   github_owner_id              = var.github_owner_id
   github_repository_id         = var.github_repository_id

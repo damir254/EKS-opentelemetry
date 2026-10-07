@@ -12,8 +12,13 @@ Grafana validation requires AWS-backed admin credentials for both the server and
 reload sidecars; recovery tests check password handling and sync prerequisites.
 Access guards require one HTTPS ALB class, its certificate list, separate host
 rules and dashboard/Locust source-IP conditions. ExternalDNS watches only that
-class. The migration gate checks AWS's actual rules before public access is opened.
+class. Keycloak joins that class; administration retains its own source-IP condition.
 Runtime tests also verify the demo's old Locust routes return 404.
+Keycloak tests exercise optimized production startup, isolated PostgreSQL
+permissions, realm/client provisioning, bootstrap access removal and password/access
+continuity after reconciliation and restart. Guards reject public admin/management
+routes, plaintext credentials and weakened dashboard OIDC settings. The scheduled
+image inventory also includes the pinned official Keycloak image.
 
 Service delivery uses **one build**:
 
@@ -74,4 +79,3 @@ OpenSSL `3.0.2-0ubuntu1.30`. Its demo routing/telemetry configuration is rendere
 from [this template](../helm/otel-demo/files/frontend-proxy/envoy.yaml.tpl) into a
 ConfigMap mounted at `/etc/envoy`. Configuration changes update the pod checksum
 and trigger a rollout; the container still runs as UID/GID 101.
-

@@ -8,7 +8,7 @@ output "connection" {
   value = {
     host                  = aws_db_instance.grafana.address
     port                  = aws_db_instance.grafana.port
-    database              = aws_db_instance.grafana.db_name
+    database              = "grafana"
     admin_username        = aws_db_instance.grafana.username
     admin_secret_arn      = aws_db_instance.grafana.master_user_secret[0].secret_arn
     application_username  = "grafana"

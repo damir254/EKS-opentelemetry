@@ -137,6 +137,18 @@ variable "grafana_db_instance_class" {
   default     = "db.t3.micro"
 }
 
+variable "grafana_db_snapshot_identifier" {
+  description = "Restore Grafana and Keycloak together from this retained RDS snapshot on recreation."
+  type        = string
+  default     = null
+}
+
+variable "grafana_db_deletion_protection" {
+  description = "Protect the shared Grafana/Keycloak RDS instance from accidental destruction."
+  type        = bool
+  default     = true
+}
+
 variable "grafana_db_multi_az" {
   description = "Create a standby database for failover. Keep false on the AWS Free plan; enabling this requires a Paid plan."
   type        = bool

@@ -1,0 +1,14 @@
+# Must match Terraform's cluster_name plus "-grafana".
+databaseInstanceIdentifier: otel-demo-eks-grafana
+region: eu-central-1
+hostname: auth.damircloud.com
+replicas: 2
+resources:
+  requests: {cpu: 250m, memory: 1536Mi, ephemeral-storage: 1Gi}
+  limits: {cpu: "2", memory: 2Gi, ephemeral-storage: 2Gi}
+# Official images pinned to immutable multi-architecture manifests.
+images:
+  keycloak: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
+  awsCli: public.ecr.aws/aws-cli/aws-cli@sha256:92de75724b6a746951f0e8b915d86bbccd7cb55aff96cd0cb4f7017272160780
+  python: docker.io/library/python:3.13-slim-bookworm@sha256:a1165e272e578941b84abc79e4ab38a0305cd12803a5c4247979ac7655f4d641
+  postgres: docker.io/library/postgres:16-bookworm@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4
