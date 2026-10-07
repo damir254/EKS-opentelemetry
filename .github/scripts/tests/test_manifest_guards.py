@@ -16,7 +16,7 @@ class ManifestGuardTests(unittest.TestCase):
         self.assertEqual(instance_types["operator"], "In")
         self.assertTrue(instance_types["values"])
         self.assertLessEqual(set(instance_types["values"]), {"m7i-flex.large"})
-        self.assertEqual(pool["spec"]["disruption"]["consolidationPolicy"], "WhenEmpty")
+        self.assertEqual(pool["spec"]["disruption"]["consolidationPolicy"], "WhenEmptyOrUnderutilized")
 
     def test_custom_capacity_does_not_depend_on_builtin_nodeclass(self):
         directory = validation.ROOT / "platform/auto-mode"
