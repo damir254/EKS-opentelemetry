@@ -36,6 +36,8 @@ module "eks" {
   private_subnet_ids     = module.vpc.private_subnet_ids
   cluster_admin_role_arn = var.cluster_admin_role_arn
   metrics_server_version = var.metrics_server_version
+  enable_metrics_server  = var.enable_metrics_server
+  builtin_node_pools     = var.auto_mode_builtin_node_pools
 }
 
 module "ecr" {

@@ -1,0 +1,1393 @@
+{
+  "description": "NodeClass is the Schema for the NodeClass API",
+  "properties": {
+    "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object.\nServers should convert recognized schemas to the latest internal value, and\nmay reject unrecognized values.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents.\nServers may infer this from the endpoint the client submits requests to.\nCannot be updated.\nIn CamelCase.\nMore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "spec": {
+      "description": "NodeClassSpec is the top level specification for the AWS Karpenter Provider.\nThis will contain configuration necessary to launch instances in AWS.",
+      "properties": {
+        "advancedCompute": {
+          "description": "AdvancedCompute enables the configuration of compute behavior on Auto nodes, such as hugepage reservations.",
+          "properties": {
+            "hugepages": {
+              "description": "Hugepages configures explicit hugepage reservations on the node.",
+              "properties": {
+                "pages": {
+                  "description": "Pages is a list of hugepage size and count pairs to reserve on each node.",
+                  "items": {
+                    "description": "HugePageEntry defines a single hugepage reservation.",
+                    "properties": {
+                      "count": {
+                        "description": "Count is the number of hugepages of this size to reserve.",
+                        "format": "int32",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "size": {
+                        "description": "Size is the hugepage size to reserve.",
+                        "enum": [
+                          "2Mi",
+                          "1Gi"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "count",
+                      "size"
+                    ],
+                    "type": "object",
+                    "additionalProperties": false
+                  },
+                  "maxItems": 2,
+                  "type": "array",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "hugepages size must be unique",
+                      "rule": "self.all(x, self.filter(y, y.size == x.size).size() == 1)"
+                    }
+                  ]
+                },
+                "transparent": {
+                  "description": "Transparent configures transparent hugepages (THP) on the node. THP is a kernel-wide policy\nrather than an allocatable resource, so it does not affect scheduling or node capacity.",
+                  "properties": {
+                    "defrag": {
+                      "description": "Defrag controls how aggressively the kernel compacts memory to satisfy a THP allocation.\nSetting Enabled to \"never\" forces defrag to \"never\" in the kernel, so any other value is\nrejected in that case. Defaults to the kernel default (\"madvise\") when unset.",
+                      "enum": [
+                        "always",
+                        "defer",
+                        "defer+madvise",
+                        "madvise",
+                        "never"
+                      ],
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "description": "Enabled controls the THP allocation policy. \"always\" applies THP system-wide, \"madvise\"\napplies it only to regions that opt in via madvise(MADV_HUGEPAGE), and \"never\" disables it.\nDefaults to the kernel default (\"madvise\") when unset.",
+                      "enum": [
+                        "always",
+                        "madvise",
+                        "never"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "defrag cannot be enabled when enabled is 'never'",
+                      "rule": "!(has(self.enabled) && self.enabled == 'never') || !has(self.defrag) || self.defrag == 'never'"
+                    }
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "type": "object",
+              "additionalProperties": false
+            },
+            "kernel": {
+              "description": "Kernel groups Linux-kernel-scoped configuration on the node.",
+              "properties": {
+                "sysctl": {
+                  "description": "Sysctl configures kernel sysctls on the node. Property names exactly match the\nname of the underlying sysctl.",
+                  "properties": {
+                    "fs.aio-max-nr": {
+                      "description": "The maximum number of asynchronous I/O requests.",
+                      "format": "int64",
+                      "maximum": 4194304,
+                      "minimum": 65536,
+                      "type": "integer"
+                    },
+                    "fs.inotify.max_user_instances": {
+                      "description": "The maximum number of inotify instances per real user ID.",
+                      "format": "int64",
+                      "maximum": 1048576,
+                      "minimum": 8192,
+                      "type": "integer"
+                    },
+                    "fs.inotify.max_user_watches": {
+                      "description": "The maximum number of inotify watches per real user ID.",
+                      "format": "int64",
+                      "maximum": 1048576,
+                      "minimum": 8192,
+                      "type": "integer"
+                    },
+                    "fs.nr_open": {
+                      "description": "The maximum number of file handles a process can allocate.",
+                      "format": "int64",
+                      "maximum": 2147483584,
+                      "minimum": 1048576,
+                      "type": "integer"
+                    },
+                    "kernel.perf_event_paranoid": {
+                      "description": "Controls unprivileged access to performance event systems.",
+                      "format": "int64",
+                      "maximum": 2,
+                      "minimum": -1,
+                      "type": "integer"
+                    },
+                    "net.core.netdev_max_backlog": {
+                      "description": "The maximum number of packets queued on the INPUT side per CPU.",
+                      "format": "int64",
+                      "maximum": 3240000,
+                      "minimum": 1000,
+                      "type": "integer"
+                    },
+                    "net.core.rmem_max": {
+                      "description": "The maximum receive socket buffer size, in bytes.",
+                      "format": "int64",
+                      "maximum": 134217728,
+                      "minimum": 212992,
+                      "type": "integer"
+                    },
+                    "net.core.somaxconn": {
+                      "description": "The maximum value for the backlog argument in the listen syscall.",
+                      "format": "int64",
+                      "maximum": 3240000,
+                      "minimum": 4096,
+                      "type": "integer"
+                    },
+                    "net.core.wmem_max": {
+                      "description": "The maximum send socket buffer size, in bytes.",
+                      "format": "int64",
+                      "maximum": 134217728,
+                      "minimum": 212992,
+                      "type": "integer"
+                    },
+                    "net.ipv4.neigh.default.gc_thresh1": {
+                      "description": "Minimum ARP-cache entries before garbage collection can run.",
+                      "format": "int64",
+                      "maximum": 262144,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "net.ipv4.neigh.default.gc_thresh2": {
+                      "description": "Soft maximum number of ARP-cache entries.",
+                      "format": "int64",
+                      "maximum": 524288,
+                      "minimum": 512,
+                      "type": "integer"
+                    },
+                    "net.ipv4.neigh.default.gc_thresh3": {
+                      "description": "Hard maximum number of ARP-cache entries.",
+                      "format": "int64",
+                      "maximum": 1048576,
+                      "minimum": 1024,
+                      "type": "integer"
+                    },
+                    "net.ipv4.tcp_congestion_control": {
+                      "description": "The TCP congestion-control algorithm for new connections.",
+                      "enum": [
+                        "cubic",
+                        "reno"
+                      ],
+                      "type": "string"
+                    },
+                    "net.ipv4.tcp_fin_timeout": {
+                      "description": "The length of time, in seconds, an orphaned (no longer referenced by any application)\nconnection will remain in the FIN_WAIT_2 state before it is aborted at the local end.",
+                      "format": "int64",
+                      "maximum": 120,
+                      "minimum": 5,
+                      "type": "integer"
+                    },
+                    "net.ipv4.tcp_keepalive_time": {
+                      "description": "How often, in seconds, TCP sends out keepalive messages when keepalive is enabled.",
+                      "format": "int64",
+                      "maximum": 432000,
+                      "minimum": 30,
+                      "type": "integer"
+                    },
+                    "net.ipv4.tcp_max_syn_backlog": {
+                      "description": "The maximum number of outstanding SYN requests that are allowed. Requests beyond this\nvalue are dropped by the kernel.",
+                      "format": "int64",
+                      "maximum": 3240000,
+                      "minimum": 128,
+                      "type": "integer"
+                    },
+                    "net.ipv4.tcp_tw_reuse": {
+                      "description": "Enable reuse of TIME-WAIT sockets for new connections when it is safe from a protocol\nviewpoint. Valid values are 0 (disable), 1 (global enable), or 2 (enable for loopback only).",
+                      "format": "int64",
+                      "maximum": 2,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "user.max_user_namespaces": {
+                      "description": "The maximum number of user namespaces creatable by a user. A value of 0 disables user\nnamespaces.",
+                      "format": "int64",
+                      "maximum": 2147483647,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "vm.dirty_background_ratio": {
+                      "description": "Percent of available memory at which kernel flusher threads begin\nwriting dirty pages back to disk.",
+                      "format": "int64",
+                      "maximum": 20,
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "vm.dirty_expire_centisecs": {
+                      "description": "Hundredths of a second before a dirty page becomes eligible for writeback.",
+                      "format": "int64",
+                      "maximum": 6000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "vm.dirty_ratio": {
+                      "description": "Percent of available memory at which writing programs are forced to block on writes.",
+                      "format": "int64",
+                      "maximum": 40,
+                      "minimum": 5,
+                      "type": "integer"
+                    },
+                    "vm.dirty_writeback_centisecs": {
+                      "description": "Hundredths of a second between flusher-thread invocations.",
+                      "format": "int64",
+                      "maximum": 1000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "vm.max_map_count": {
+                      "description": "The maximum number of memory map areas a single process may have.",
+                      "format": "int64",
+                      "maximum": 2147483647,
+                      "minimum": 65530,
+                      "type": "integer"
+                    },
+                    "vm.swappiness": {
+                      "description": "Relative IO cost of swapping vs. filesystem paging.",
+                      "format": "int64",
+                      "maximum": 200,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "vm.watermark_scale_factor": {
+                      "description": "Memory reclaim watermark ratio in fractions of 10,000.",
+                      "format": "int64",
+                      "maximum": 3000,
+                      "minimum": 10,
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "'vm.dirty_background_ratio' and 'vm.dirty_ratio' must both be set or both be unset",
+                      "rule": "has(self.vm__dot__dirty_background_ratio) == has(self.vm__dot__dirty_ratio)"
+                    },
+                    {
+                      "message": "'vm.dirty_background_ratio' must be less than 'vm.dirty_ratio'",
+                      "rule": "!has(self.vm__dot__dirty_background_ratio) || self.vm__dot__dirty_background_ratio < self.vm__dot__dirty_ratio"
+                    },
+                    {
+                      "message": "'net.ipv4.neigh.default.gc_thresh1', 'net.ipv4.neigh.default.gc_thresh2', and 'net.ipv4.neigh.default.gc_thresh3' must all be set or all be unset",
+                      "rule": "(has(self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh1) == has(self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh2)) && (has(self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh2) == has(self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh3))"
+                    },
+                    {
+                      "message": "ARP-cache GC thresholds must satisfy 'net.ipv4.neigh.default.gc_thresh1' < 'net.ipv4.neigh.default.gc_thresh2' < 'net.ipv4.neigh.default.gc_thresh3'",
+                      "rule": "!has(self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh1) || (self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh1 < self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh2 && self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh2 < self.net__dot__ipv4__dot__neigh__dot__default__dot__gc_thresh3)"
+                    }
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "type": "object",
+              "additionalProperties": false
+            },
+            "kubelet": {
+              "description": "Kubelet contains kubelet configuration overrides for Auto Mode nodes.",
+              "properties": {
+                "allowedUnsafeSysctls": {
+                  "description": "AllowedUnsafeSysctls is a list of unsafe sysctls (or namespaced patterns ending in \"*\")\nthat pods scheduled on this node are permitted to set.",
+                  "items": {
+                    "maxLength": 253,
+                    "pattern": "^(kernel\\.shm.*|kernel\\.msg.*|kernel\\.sem|fs\\.mqueue\\..+|net\\..+)$",
+                    "type": "string"
+                  },
+                  "maxItems": 64,
+                  "type": "array"
+                },
+                "cpuManager": {
+                  "description": "CpuManager configures the kubelet CPU manager policy.\nWhen policy is \"static\", whole-core CPU pinning is enabled for guaranteed QoS pods.",
+                  "properties": {
+                    "policy": {
+                      "description": "Policy is the CPU manager policy. \"static\" enables whole-core pinning for guaranteed QoS pods.",
+                      "enum": [
+                        "none",
+                        "static"
+                      ],
+                      "type": "string"
+                    },
+                    "policyOptions": {
+                      "description": "PolicyOptions is a list of CPU manager policy options to enable. Only valid when policy is\n\"static\". strict-cpu-reservation requires the CPUManagerPolicyBetaOptions kubelet feature gate.",
+                      "items": {
+                        "description": "CPUManagerPolicyOption is a supported kubelet CPU manager policy option. Limited to the options the\nBottlerocket settings SDK supports.",
+                        "enum": [
+                          "full-pcpus-only",
+                          "distribute-cpus-across-numa",
+                          "prefer-align-cpus-by-uncorecache",
+                          "strict-cpu-reservation"
+                        ],
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "policy"
+                  ],
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "cpuManager.policyOptions can only be set when cpuManager.policy is 'static'",
+                      "rule": "!has(self.policyOptions) || self.policy == 'static'"
+                    }
+                  ],
+                  "additionalProperties": false
+                },
+                "eviction": {
+                  "description": "Eviction configures kubelet eviction thresholds for resource pressure signals.",
+                  "properties": {
+                    "hard": {
+                      "additionalProperties": {
+                        "description": "EvictionThreshold is a string representing a percentage (e.g. \"10%\") or absolute quantity (e.g. \"100Mi\").",
+                        "maxLength": 20,
+                        "pattern": "^((0|[1-9][0-9]?|100)%|[1-9][0-9]*(Ki|Mi|Gi|Ti|Pi|Ei)?)$",
+                        "type": "string"
+                      },
+                      "description": "Hard eviction thresholds. When a signal crosses its threshold, pods are immediately evicted.\nValid keys: memory.available, nodefs.available, nodefs.inodesFree, imagefs.available, imagefs.inodesFree, pid.available.\nValues may be a percentage (e.g. \"10%\") or an absolute quantity (e.g. \"100Mi\").",
+                      "maxProperties": 6,
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for eviction.hard are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']",
+                          "rule": "self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])"
+                        }
+                      ]
+                    },
+                    "maxPodGracePeriod": {
+                      "description": "MaxPodGracePeriod is the maximum allowed grace period (in seconds) to use when terminating\npods in response to soft eviction thresholds being met. A value of 0 means each pod's\nterminationGracePeriodSeconds is used.",
+                      "format": "int32",
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "soft": {
+                      "additionalProperties": {
+                        "description": "EvictionThreshold is a string representing a percentage (e.g. \"10%\") or absolute quantity (e.g. \"100Mi\").",
+                        "maxLength": 20,
+                        "pattern": "^((0|[1-9][0-9]?|100)%|[1-9][0-9]*(Ki|Mi|Gi|Ti|Pi|Ei)?)$",
+                        "type": "string"
+                      },
+                      "description": "Soft eviction thresholds. Pods are evicted after the signal remains past its threshold for the configured grace period.\nSame key/value format as Hard.",
+                      "maxProperties": 6,
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for eviction.soft are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']",
+                          "rule": "self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])"
+                        }
+                      ]
+                    },
+                    "softGracePeriod": {
+                      "additionalProperties": {
+                        "type": "string"
+                      },
+                      "description": "SoftGracePeriod maps eviction signal names to duration strings (e.g. \"1m30s\") defining\nhow long a signal must exceed its soft threshold before eviction occurs.\nRequired when soft eviction thresholds are set.",
+                      "maxProperties": 6,
+                      "type": "object",
+                      "x-kubernetes-validations": [
+                        {
+                          "message": "valid keys for eviction.softGracePeriod are ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available']",
+                          "rule": "self.all(x, x in ['memory.available','nodefs.available','nodefs.inodesFree','imagefs.available','imagefs.inodesFree','pid.available'])"
+                        },
+                        {
+                          "message": "softGracePeriod values must be valid durations (e.g. '30s', '1m30s', '2h')",
+                          "rule": "self.all(x, self[x].matches('^([0-9]+[hms])+$'))"
+                        }
+                      ]
+                    }
+                  },
+                  "type": "object",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "softGracePeriod is required when soft eviction thresholds are set",
+                      "rule": "!has(self.soft) || has(self.softGracePeriod)"
+                    },
+                    {
+                      "message": "each eviction soft signal must have a matching softGracePeriod",
+                      "rule": "!has(self.soft) || !has(self.softGracePeriod) || self.soft.all(x, x in self.softGracePeriod)"
+                    },
+                    {
+                      "message": "each softGracePeriod signal must have a matching eviction soft threshold",
+                      "rule": "!has(self.softGracePeriod) || !has(self.soft) || self.softGracePeriod.all(x, x in self.soft)"
+                    }
+                  ],
+                  "additionalProperties": false
+                },
+                "idsPerPod": {
+                  "description": "IdsPerPod sets the number of UIDs/GIDs kubelet allocates to each pod's user namespace.\nRequires advancedCompute.kernel.sysctl.user.max_user_namespaces to be set to a positive value.",
+                  "format": "int64",
+                  "maximum": 4294967295,
+                  "minimum": 65536,
+                  "type": "integer",
+                  "x-kubernetes-validations": [
+                    {
+                      "message": "idsPerPod must be a multiple of 65536",
+                      "rule": "self % 65536 == 0"
+                    }
+                  ]
+                },
+                "logging": {
+                  "description": "Logging configures container log rotation settings.",
+                  "properties": {
+                    "containerLogMaxFiles": {
+                      "description": "ContainerLogMaxFiles is the maximum number of rotated container log files to retain per container.\nTotal log retention per container = containerLogMaxSize x containerLogMaxFiles.",
+                      "format": "int32",
+                      "minimum": 2,
+                      "type": "integer"
+                    },
+                    "containerLogMaxSize": {
+                      "description": "ContainerLogMaxSize is the maximum size of a container log file before it is rotated (e.g. \"10Mi\", \"50Mi\", \"1Gi\").",
+                      "pattern": "^[1-9][0-9]*(Ki|Mi|Gi)$",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object",
+                  "additionalProperties": false
+                },
+                "maxPods": {
+                  "description": "MaxPods overrides the maximum number of pods that can run on a node.\nAt runtime, this is clamped to min(maxPods, available IPs for the instance type).",
+                  "format": "int32",
+                  "maximum": 110,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "podPidsLimit": {
+                  "description": "PodPidsLimit sets the maximum number of process IDs (PIDs) per pod.\nA value of -1 disables the limit entirely.",
+                  "format": "int64",
+                  "type": "integer"
+                },
+                "singleProcessOOMKill": {
+                  "description": "SingleProcessOOMKill, if true, prevents the memory.oom.group flag from being set for\ncontainer cgroups. This causes processes in the container to be OOM killed individually\ninstead of as a group, aligning behavior with cgroups v1.",
+                  "type": "boolean"
+                },
+                "topologyManager": {
+                  "description": "TopologyManager configures the kubelet topology manager policy.\nControls NUMA-aware resource alignment for pods.",
+                  "properties": {
+                    "policy": {
+                      "description": "Policy is the topology manager policy.\n\"single-numa-node\" enforces all resources for a pod to come from a single NUMA node.",
+                      "enum": [
+                        "none",
+                        "best-effort",
+                        "restricted",
+                        "single-numa-node"
+                      ],
+                      "type": "string"
+                    },
+                    "scope": {
+                      "description": "Scope is the granularity at which the topology manager applies its policy: \"container\"\naligns each container individually, \"pod\" aligns all containers in a pod together. Defaults\nto \"container\" when unset.",
+                      "enum": [
+                        "container",
+                        "pod"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "policy"
+                  ],
+                  "type": "object",
+                  "additionalProperties": false
+                }
+              },
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "podPidsLimit must be -1 (disabled) or >= 100",
+                  "rule": "!has(self.podPidsLimit) || self.podPidsLimit == -1 || self.podPidsLimit >= 100"
+                },
+                {
+                  "message": "cpuManager.policyOptions 'distribute-cpus-across-numa' cannot be used with topologyManager.policy 'single-numa-node'",
+                  "rule": "!(has(self.cpuManager) && has(self.cpuManager.policyOptions) && 'distribute-cpus-across-numa' in self.cpuManager.policyOptions && has(self.topologyManager) && self.topologyManager.policy == 'single-numa-node')"
+                }
+              ],
+              "additionalProperties": false
+            }
+          },
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "advancedCompute.kubelet.idsPerPod requires advancedCompute.kernel.sysctl.user.max_user_namespaces to be set to a positive value",
+              "rule": "!has(self.kubelet) || !has(self.kubelet.idsPerPod) || (has(self.kernel) && has(self.kernel.sysctl) && has(self.kernel.sysctl.user__dot__max_user_namespaces) && self.kernel.sysctl.user__dot__max_user_namespaces > 0)"
+            }
+          ],
+          "additionalProperties": false
+        },
+        "advancedNetworking": {
+          "description": "AdvancedNetworking enables the configuration of custom networking settings for Auto nodes, such as HTTP/HTTPS proxies and no-proxy rules.\nThis is useful in environments with restricted internet access or specific routing requirements, allowing nodes to communicate through proxies\nor bypass certain hosts and networks.",
+          "properties": {
+            "associatePublicIPAddress": {
+              "description": "AssociatePublicIPAddress controls whether public IP addresses are assigned to instances that are launched with the nodeclass.",
+              "type": "boolean"
+            },
+            "connectionTracking": {
+              "description": "ConnectionTracking controls connection tracking timeout configuration on the ENIs managed by Karpenter.",
+              "properties": {
+                "tcpEstablishedTimeout": {
+                  "description": "TcpEstablishedTimeout is the timeout (in seconds) for idle TCP connections in an established state.",
+                  "format": "int32",
+                  "maximum": 432000,
+                  "minimum": 60,
+                  "type": "integer"
+                },
+                "udpStreamTimeout": {
+                  "description": "UdpStreamTimeout is the timeout (in seconds) for idle UDP streams that have seen traffic in both directions.",
+                  "format": "int32",
+                  "maximum": 180,
+                  "minimum": 60,
+                  "type": "integer"
+                },
+                "udpTimeout": {
+                  "description": "UdpTimeout is the timeout (in seconds) for idle UDP flows that have seen traffic only in a single direction or a single request-response transaction.",
+                  "format": "int32",
+                  "maximum": 60,
+                  "minimum": 30,
+                  "type": "integer"
+                }
+              },
+              "type": "object",
+              "x-kubernetes-validations": [
+                {
+                  "message": "at least one of tcpEstablishedTimeout, udpStreamTimeout, or udpTimeout must be set",
+                  "rule": "has(self.tcpEstablishedTimeout) || has(self.udpStreamTimeout) || has(self.udpTimeout)"
+                }
+              ],
+              "additionalProperties": false
+            },
+            "coredns": {
+              "description": "CoreDNS configures node-local CoreDNS customization on Auto Mode nodes.",
+              "properties": {
+                "configMapRef": {
+                  "description": "ConfigMapRef points at the ConfigMap in kube-system that carries the\ncustomer's Corefile in the `Corefile` data key. Namespace is fixed to\nkube-system and enforced by the agent's RBAC; only the name is customer-chosen.\nRequired when `coredns` is set; an empty block is not a valid opt-in.",
+                  "properties": {
+                    "name": {
+                      "description": "Name of the ConfigMap in kube-system. The ConfigMap must contain a\n`Corefile` data key. Presence of this field is the opt-in signal; absence\nkeeps the AMI-shipped baseline Corefile serving.",
+                      "maxLength": 253,
+                      "minLength": 1,
+                      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name"
+                  ],
+                  "type": "object",
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "configMapRef"
+              ],
+              "type": "object",
+              "additionalProperties": false
+            },
+            "enableV4Egress": {
+              "default": true,
+              "description": "EnableV4Egress: When set to true or not set, enables IPv4 egress traffic from the Auto nodes in IPv6 cluster.",
+              "type": "boolean"
+            },
+            "enableV6Egress": {
+              "description": "EnableV6Egress: When set to true, enables IPv6 egress traffic from the Auto nodes in IPv4 cluster.",
+              "type": "boolean"
+            },
+            "httpsProxy": {
+              "description": "HttpsProxy: The URL of the HTTPS proxy to use for outbound traffic from the Auto nodes.",
+              "maxLength": 2048,
+              "pattern": "^[0-9a-zA-Z./:@#%&_=?,\\-\\[\\]]+$",
+              "type": "string"
+            },
+            "ipv4PrefixSize": {
+              "default": "Auto",
+              "description": "IPv4PrefixSize controls size of cidr range that nodes derived from the nodeclass.",
+              "enum": [
+                "32",
+                "Auto"
+              ],
+              "type": "string"
+            },
+            "networkInterfaces": {
+              "description": "NetworkInterfaces specifies the network interface configurations to be attached to provisioned instances.",
+              "items": {
+                "description": "NetworkInterface specifies the configuration for a network interface to be attached\nto provisioned instances.",
+                "properties": {
+                  "deviceIndex": {
+                    "description": "DeviceIndex is the device index for the network interface attachment.",
+                    "format": "int32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "interfaceType": {
+                    "description": "InterfaceType is the type of network interface. Valid values are \"interface\" and \"efa-only\".",
+                    "enum": [
+                      "interface",
+                      "efa-only"
+                    ],
+                    "type": "string"
+                  },
+                  "networkCardIndex": {
+                    "description": "NetworkCardIndex is the index of the network card to attach the interface to.",
+                    "format": "int32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "secondaryIPv4Count": {
+                    "description": "SecondaryIPv4Count is the number of secondary IPv4 addresses to assign to the network interface.",
+                    "format": "int32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "secondaryIPv4PrefixCount": {
+                    "description": "SecondaryIPv4PrefixCount is the number of IPv4 prefixes to assign to the network interface.\nEach prefix provides 16 IP addresses.",
+                    "format": "int32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "deviceIndex",
+                  "interfaceType",
+                  "networkCardIndex"
+                ],
+                "type": "object",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "Neither secondaryIPv4Count nor secondaryIPv4PrefixCount can be configured with EFA-only interfaces",
+                    "rule": "self.interfaceType != 'efa-only' || (!has(self.secondaryIPv4Count) && !has(self.secondaryIPv4PrefixCount))"
+                  },
+                  {
+                    "message": "secondaryIPv4Count and secondaryIPv4PrefixCount are only supported on network card index 0",
+                    "rule": "self.networkCardIndex == 0 || (!has(self.secondaryIPv4Count) && !has(self.secondaryIPv4PrefixCount))"
+                  },
+                  {
+                    "message": "secondaryIPv4Count and secondaryIPv4PrefixCount are mutually exclusive",
+                    "rule": "!(has(self.secondaryIPv4Count) && has(self.secondaryIPv4PrefixCount))"
+                  }
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 150,
+              "type": "array",
+              "x-kubernetes-validations": [
+                {
+                  "message": "networkInterfaces must include a primary interface with interfaceType='interface'",
+                  "rule": "self.size() == 0 || self.exists(x, x.deviceIndex == 0 && x.networkCardIndex == 0 && x.interfaceType == 'interface')"
+                },
+                {
+                  "message": "networkInterfaces must not have duplicate networkCardIndex and deviceIndex pairs, and can have at most one efa device per network card",
+                  "rule": "self.all(x, self.filter(y, x.networkCardIndex == y.networkCardIndex && x.deviceIndex == y.deviceIndex).size() == 1 && (x.interfaceType != 'efa-only' || self.filter(y, x.networkCardIndex == y.networkCardIndex && y.interfaceType == 'efa-only').size() == 1))"
+                }
+              ]
+            },
+            "noProxy": {
+              "description": "A list of URLs that should be excluded from going through the HTTPS proxy. (max 50 entries)",
+              "items": {
+                "maxLength": 2048,
+                "pattern": "^[0-9a-zA-Z./:@#%&_=?,\\-\\[\\]]+$",
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "sourceDestCheck": {
+              "description": "SourceDestCheck controls source/destination check on a given ENI.\nWhen set to \"DisabledPrimaryENI\", the source/destination check will be disabled on the primary ENI of the node.",
+              "enum": [
+                "DisabledPrimaryENI"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "additionalProperties": false
+        },
+        "advancedSecurity": {
+          "description": "AdvancedSecurity allows configuring more complex security options for Auto nodes, for example if nodes shoulds use FIPS-compliant AMIs.",
+          "properties": {
+            "fips": {
+              "description": "FIPS controls whether AMIs should use FIPS-compliant cryptographic libraries.",
+              "type": "boolean"
+            },
+            "kernelLockdown": {
+              "description": "KernelLockdown controls the kernel lockdown setting.",
+              "enum": [
+                "Integrity",
+                "None"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "additionalProperties": false
+        },
+        "capacityReservationSelectorTerms": {
+          "description": "CapacityReservationSelectorTerms is a list of capacity reservation selector terms. Each term is ORed together to\ndetermine the set of eligible capacity reservations.",
+          "items": {
+            "properties": {
+              "id": {
+                "description": "ID is the capacity reservation id in EC2",
+                "pattern": "^cr-[0-9a-z]+$",
+                "type": "string"
+              },
+              "ownerID": {
+                "description": "Owner is the owner id for the capacity reservation.",
+                "pattern": "^[0-9]{12}$",
+                "type": "string"
+              },
+              "tags": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Tags is a map of key/value tags used to select capacity reservations.\nSpecifying '*' for a value selects all values for a given tag key.",
+                "maxProperties": 20,
+                "type": "object",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "empty tag keys or values aren't supported",
+                    "rule": "self.all(k, k != '' && self[k] != '')"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "additionalProperties": false
+          },
+          "maxItems": 30,
+          "type": "array",
+          "x-kubernetes-validations": [
+            {
+              "message": "expected at least one, got none, ['tags', 'id']",
+              "rule": "self.all(x, has(x.tags) || has(x.id))"
+            },
+            {
+              "message": "'id' is mutually exclusive, cannot be set along with tags in a capacity reservation selector term",
+              "rule": "!self.all(x, has(x.id) && (has(x.tags) || has(x.ownerID)))"
+            }
+          ]
+        },
+        "certificateBundles": {
+          "description": "Optional: Provide custom certificate bundles to Auto Mode nodes",
+          "items": {
+            "description": "Certificate bundles for the Auto Mode nodes",
+            "properties": {
+              "data": {
+                "description": "(Required) Base64-encoded, PEM formatted certificate",
+                "pattern": "^[A-Za-z0-9+=\\/]+$",
+                "type": "string"
+              },
+              "name": {
+                "description": "(Optional) A name for the certificate bundle",
+                "maxLength": 64,
+                "pattern": "^[a-z-]+$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "data"
+            ],
+            "type": "object",
+            "additionalProperties": false
+          },
+          "maxItems": 50,
+          "type": "array",
+          "x-kubernetes-validations": [
+            {
+              "message": "certificateBundles cannot be empty",
+              "rule": "self.size() != 0"
+            },
+            {
+              "message": "expected 'data'",
+              "rule": "self.all(x, has(x.data))"
+            },
+            {
+              "message": "name must be unique across certificateBundles",
+              "rule": "self.all(x, !has(x.name) || self.filter(y, y.name == x.name && has(y.name)).size() == 1)"
+            }
+          ]
+        },
+        "ephemeralStorage": {
+          "default": {
+            "iops": 3000,
+            "size": "80Gi",
+            "throughput": 125
+          },
+          "description": "EphemeralStorage specifies the default data volume storage attached to the node",
+          "properties": {
+            "iops": {
+              "default": 3000,
+              "description": "The IOPS for ephemeral storage",
+              "format": "int64",
+              "maximum": 16000,
+              "minimum": 3000,
+              "type": "integer"
+            },
+            "kmsKeyID": {
+              "description": "The key ID, key alias, key ARN, or alias ARN of the KMS Key to use\nfor EBS encryption",
+              "pattern": "(^[A-z0-9-_\\/]{1,256}$)|(^(arn:(aws|aws-us-gov|aws-cn):kms:[a-z0-9-]+:\\d{12}:(key|alias))\\/[0-9A-Za-z-]{1,256}$)|(^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$)",
+              "type": "string"
+            },
+            "size": {
+              "default": "80Gi",
+              "description": "The size of the ephemeral storage",
+              "pattern": "^((?:[1-9][0-9]{0,3}|[1-4][0-9]{4}|[5][0-8][0-9]{3}|59000)Gi|(?:[1-9][0-9]{0,3}|[1-5][0-9]{4}|[6][0-3][0-9]{3}|64000)G|([1-9]||[1-5][0-7]|58)Ti|([1-9]||[1-5][0-9]|6[0-3]|64)T)$",
+              "type": "string"
+            },
+            "throughput": {
+              "default": 125,
+              "description": "The throughput for ephemeral storage",
+              "format": "int64",
+              "maximum": 1000,
+              "minimum": 125,
+              "type": "integer"
+            }
+          },
+          "type": "object",
+          "additionalProperties": false
+        },
+        "instanceProfile": {
+          "description": "InstanceProfile is the AWS entity that instances use.\nThis field is mutually exclusive from role.\nThe instance profile should already have a role assigned to it that Karpenter\nhas PassRole permission on for instance launch using this instanceProfile to succeed.",
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "message": "instanceProfile cannot be empty",
+              "rule": "self != ''"
+            }
+          ]
+        },
+        "networkPolicy": {
+          "default": "DefaultAllow",
+          "description": "NetworkPolicy tells the network policy agent how it should enforce network policies against pods\nBy default, the Amazon VPC CNI plugin for Kubernetes configures network policies for pods in parallel with the pod provisioning\nIn the DefaultAllow mode, until all of the policies are configured for the new pod, containers in the new pod will start with a default allow policy.\nA default allow policy means that all ingress and egress traffic is allowed to and from the new pods\nIn the DefaultDeny mode, a new pod will be blocked from Egress and Ingress connections till a qualifying Network Policy is applied\nIn this mode, you must have a network policy defined for every pod in your cluster. Host Networking pods are exempted from this requirement.",
+          "enum": [
+            "DefaultAllow",
+            "DefaultDeny"
+          ],
+          "type": "string"
+        },
+        "networkPolicyEventLogs": {
+          "default": "Disabled",
+          "description": "NetworkPolicyEventLogs controls whether Network Policy event logging is enabled on the nodes.\nBy default, this value is set to Disabled. When set to Enabled, the Network Policy Agent on the node will log the outcomes of network policy decisions.",
+          "enum": [
+            "Enabled",
+            "Disabled"
+          ],
+          "type": "string"
+        },
+        "placementGroupSelector": {
+          "description": "PlacementGroupSelector defines the name or the id of the placement to resolve with the nodeclass.",
+          "properties": {
+            "id": {
+              "description": "ID is the placement group id in EC2",
+              "pattern": "^pg-[0-9a-z]+$",
+              "type": "string"
+            },
+            "name": {
+              "description": "Name is the placement group name in EC2",
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "expected at least one, got none, ['name', 'id']",
+              "rule": "has(self.name) || has(self.id)"
+            },
+            {
+              "message": "'name' and 'id' are mutually exclusive",
+              "rule": "!(has(self.name) && has(self.id))"
+            }
+          ],
+          "additionalProperties": false
+        },
+        "podSecurityGroupSelectorTerms": {
+          "description": "PodSecurityGroupSelectorTerms is a list of security group selector terms. The terms are ORed.",
+          "items": {
+            "description": "SecurityGroupSelectorTerm defines selection logic for a security group used by Karpenter to launch nodes.\nIf multiple fields are used for selection, the requirements are ANDed.",
+            "properties": {
+              "id": {
+                "description": "ID is the security group id in EC2",
+                "pattern": "sg-[0-9a-z]+",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name is the security group name in EC2.\nThis value is the name field, which is different from the name tag.",
+                "type": "string"
+              },
+              "tags": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Tags is a map of key/value tags used to select subnets\nSpecifying '*' for a value selects all values for a given tag key.",
+                "maxProperties": 20,
+                "type": "object",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "empty tag keys or values aren't supported",
+                    "rule": "self.all(k, k != '' && self[k] != '')"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "additionalProperties": false
+          },
+          "maxItems": 30,
+          "type": "array",
+          "x-kubernetes-validations": [
+            {
+              "message": "podSecurityGroupSelectorTerms cannot be empty",
+              "rule": "self.size() != 0"
+            },
+            {
+              "message": "expected at least one, got none, ['tags', 'id', 'name']",
+              "rule": "self.all(x, has(x.tags) || has(x.id) || has(x.name))"
+            },
+            {
+              "message": "'id' is mutually exclusive, cannot be set with a combination of other fields in podSecurityGroupSelectorTerms",
+              "rule": "!self.all(x, has(x.id) && (has(x.tags) || has(x.name)))"
+            },
+            {
+              "message": "'name' is mutually exclusive, cannot be set with a combination of other fields in podSecurityGroupSelectorTerms",
+              "rule": "!self.all(x, has(x.name) && (has(x.tags) || has(x.id)))"
+            }
+          ]
+        },
+        "podSubnetSelectorTerms": {
+          "description": "PodSubnetSelectorTerms is a list of subnet selector terms. The terms are ORed.",
+          "items": {
+            "description": "SubnetSelectorTerm defines selection logic for a subnet used by Karpenter to launch nodes.\nIf multiple fields are used for selection, the requirements are ANDed.",
+            "properties": {
+              "id": {
+                "description": "ID is the subnet id in EC2",
+                "pattern": "subnet-[0-9a-z]+",
+                "type": "string"
+              },
+              "tags": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Tags is a map of key/value tags used to select subnets\nSpecifying '*' for a value selects all values for a given tag key.",
+                "maxProperties": 20,
+                "type": "object",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "empty tag keys or values aren't supported",
+                    "rule": "self.all(k, k != '' && self[k] != '')"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "additionalProperties": false
+          },
+          "maxItems": 30,
+          "type": "array",
+          "x-kubernetes-validations": [
+            {
+              "message": "podSubnetSelectorTerms cannot be empty",
+              "rule": "self.size() != 0"
+            },
+            {
+              "message": "expected at least one, got none, ['tags', 'id']",
+              "rule": "self.all(x, has(x.tags) || has(x.id))"
+            },
+            {
+              "message": "'id' is mutually exclusive, cannot be set with a combination of other fields in podSubnetSelectorTerms",
+              "rule": "!self.all(x, has(x.id) && has(x.tags))"
+            }
+          ]
+        },
+        "role": {
+          "description": "Role is the AWS identity that nodes use. This field is immutable.\nThis field is mutually exclusive from instanceProfile.\nMarking this field as immutable avoids concerns around terminating managed instance profiles from running instances.\nThis field may be made mutable in the future, assuming the correct garbage collection and drift handling is implemented\nfor the old instance profiles on an update.",
+          "maxLength": 64,
+          "type": "string",
+          "x-kubernetes-validations": [
+            {
+              "message": "role cannot be empty",
+              "rule": "self != ''"
+            },
+            {
+              "message": "immutable field changed",
+              "rule": "self == oldSelf"
+            }
+          ]
+        },
+        "securityGroupSelectorTerms": {
+          "description": "SecurityGroupSelectorTerms is a list of or security group selector terms. The terms are ORed.",
+          "items": {
+            "description": "SecurityGroupSelectorTerm defines selection logic for a security group used by Karpenter to launch nodes.\nIf multiple fields are used for selection, the requirements are ANDed.",
+            "properties": {
+              "id": {
+                "description": "ID is the security group id in EC2",
+                "pattern": "sg-[0-9a-z]+",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name is the security group name in EC2.\nThis value is the name field, which is different from the name tag.",
+                "type": "string"
+              },
+              "tags": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Tags is a map of key/value tags used to select subnets\nSpecifying '*' for a value selects all values for a given tag key.",
+                "maxProperties": 20,
+                "type": "object",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "empty tag keys or values aren't supported",
+                    "rule": "self.all(k, k != '' && self[k] != '')"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "additionalProperties": false
+          },
+          "maxItems": 30,
+          "type": "array",
+          "x-kubernetes-validations": [
+            {
+              "message": "securityGroupSelectorTerms cannot be empty",
+              "rule": "self.size() != 0"
+            },
+            {
+              "message": "expected at least one, got none, ['tags', 'id', 'name']",
+              "rule": "self.all(x, has(x.tags) || has(x.id) || has(x.name))"
+            },
+            {
+              "message": "'id' is mutually exclusive, cannot be set with a combination of other fields in securityGroupSelectorTerms",
+              "rule": "!self.all(x, has(x.id) && (has(x.tags) || has(x.name)))"
+            },
+            {
+              "message": "'name' is mutually exclusive, cannot be set with a combination of other fields in securityGroupSelectorTerms",
+              "rule": "!self.all(x, has(x.name) && (has(x.tags) || has(x.id)))"
+            }
+          ]
+        },
+        "snatPolicy": {
+          "default": "Random",
+          "description": "SNATPolicy specifies how SNAT (Source Network Address Translation) is configured on the node\nIf SNATPolicy is set to Disabled, the SNAT iptables rule and off-VPC IP rule are not applied, and these rules are removed if they have already been applied\nDo not use SNATPolicy Disabled if you need to allow inbound communication to your pods from external VPNs, direct connections, and external VPCs,\nand your pods do not need to access the Internet directly via an Internet Gateway.\nIf SNATPolicy is set to Random, the CNI will use PRNG, meaning that --random-fully will be added to the SNAT iptables rule\nEnabling this functionality means that outbound connections will be assigned a source port that is not necessarily part of the ephemeral port range set at the OS level",
+          "enum": [
+            "Random",
+            "Disabled"
+          ],
+          "type": "string"
+        },
+        "subnetSelectorTerms": {
+          "description": "SubnetSelectorTerms is a list of or subnet selector terms. The terms are ORed.",
+          "items": {
+            "description": "SubnetSelectorTerm defines selection logic for a subnet used by Karpenter to launch nodes.\nIf multiple fields are used for selection, the requirements are ANDed.",
+            "properties": {
+              "id": {
+                "description": "ID is the subnet id in EC2",
+                "pattern": "subnet-[0-9a-z]+",
+                "type": "string"
+              },
+              "tags": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Tags is a map of key/value tags used to select subnets\nSpecifying '*' for a value selects all values for a given tag key.",
+                "maxProperties": 20,
+                "type": "object",
+                "x-kubernetes-validations": [
+                  {
+                    "message": "empty tag keys or values aren't supported",
+                    "rule": "self.all(k, k != '' && self[k] != '')"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "additionalProperties": false
+          },
+          "maxItems": 30,
+          "type": "array",
+          "x-kubernetes-validations": [
+            {
+              "message": "subnetSelectorTerms cannot be empty",
+              "rule": "self.size() != 0"
+            },
+            {
+              "message": "expected at least one, got none, ['tags', 'id']",
+              "rule": "self.all(x, has(x.tags) || has(x.id))"
+            },
+            {
+              "message": "'id' is mutually exclusive, cannot be set with a combination of other fields in subnetSelectorTerms",
+              "rule": "!self.all(x, has(x.id) && has(x.tags))"
+            }
+          ]
+        },
+        "tags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Tags to be applied on ec2 resources like instances and launch templates.",
+          "type": "object",
+          "x-kubernetes-validations": [
+            {
+              "message": "empty tag keys aren't supported",
+              "rule": "self.all(k, k != '')"
+            },
+            {
+              "message": "tag contains a restricted tag matching kubernetes.io/cluster/",
+              "rule": "self.all(k, !k.startsWith('kubernetes.io/cluster') )"
+            },
+            {
+              "message": "tag contains a restricted tag matching karpenter.sh/provisioner-name",
+              "rule": "self.all(k, k != 'karpenter.sh/provisioner-name')"
+            },
+            {
+              "message": "tag contains a restricted tag matching karpenter.sh/nodepool",
+              "rule": "self.all(k, k != 'karpenter.sh/nodepool')"
+            },
+            {
+              "message": "tag contains a restricted tag matching karpenter.sh/nodeclaim",
+              "rule": "self.all(k, k != 'karpenter.sh/nodeclaim')"
+            },
+            {
+              "message": "tag contains a restricted tag matching karpenter.sh/managed-by",
+              "rule": "self.all(k, k !='karpenter.sh/managed-by')"
+            },
+            {
+              "message": "tag contains a restricted tag matching eks.amazonaws.com/nodeclass",
+              "rule": "self.all(k, k !='eks.amazonaws.com/nodeclass')"
+            }
+          ]
+        }
+      },
+      "required": [
+        "securityGroupSelectorTerms",
+        "subnetSelectorTerms"
+      ],
+      "type": "object",
+      "x-kubernetes-validations": [
+        {
+          "message": "exactly one of role OR instanceProfile must be provided",
+          "rule": "[has(self.role),has(self.instanceProfile)].filter(x, x == true).size() == 1"
+        },
+        {
+          "message": "podSecurityGroupSelectorTerms cannot be empty when podSubnetSelectorTerms is specified",
+          "rule": "!has(self.podSubnetSelectorTerms) || has(self.podSecurityGroupSelectorTerms)"
+        },
+        {
+          "message": "podSubnetSelectorTerms cannot be empty when podSecurityGroupSelectorTerms is specified",
+          "rule": "!has(self.podSecurityGroupSelectorTerms) || has(self.podSubnetSelectorTerms)"
+        },
+        {
+          "message": "hugepages cannot be configured together with EFA (efa-only) network interfaces",
+          "rule": "!(has(self.advancedCompute) && has(self.advancedCompute.hugepages) && has(self.advancedCompute.hugepages.pages) && self.advancedCompute.hugepages.pages.size() > 0 && has(self.advancedNetworking) && has(self.advancedNetworking.networkInterfaces) && self.advancedNetworking.networkInterfaces.exists(x, x.interfaceType == 'efa-only'))"
+        }
+      ],
+      "additionalProperties": false
+    },
+    "status": {
+      "description": "NodeClassStatus contains the resolved state of the EKSNodeClass",
+      "properties": {
+        "capacityReservations": {
+          "description": "CapacityReservations contains the current capacity reservation values that are available to this NodeClass under the\nCapacityReservation selectors.",
+          "items": {
+            "properties": {
+              "availabilityZone": {
+                "description": "The availability zone the capacity reservation is available in.",
+                "type": "string"
+              },
+              "endTime": {
+                "description": "The time at which the capacity reservation expires. Once expired, the reserved capacity is released and Karpenter\nwill no longer be able to launch instances into that reservation.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "id": {
+                "description": "The id for the capacity reservation.",
+                "pattern": "^cr-[0-9a-z]+$",
+                "type": "string"
+              },
+              "instanceMatchCriteria": {
+                "description": "Indicates the type of instance launches the capacity reservation accepts.",
+                "enum": [
+                  "open",
+                  "targeted"
+                ],
+                "type": "string"
+              },
+              "instanceType": {
+                "description": "The instance type for the capacity reservation.",
+                "type": "string"
+              },
+              "interruptible": {
+                "description": "Indicates whether this capacity reservation is interruptible",
+                "type": "boolean"
+              },
+              "ownerID": {
+                "description": "The ID of the AWS account that owns the capacity reservation.",
+                "pattern": "^[0-9]{12}$",
+                "type": "string"
+              },
+              "reservationType": {
+                "default": "default",
+                "description": "The type of capacity reservation.",
+                "enum": [
+                  "default",
+                  "capacity-block"
+                ],
+                "type": "string"
+              },
+              "state": {
+                "default": "active",
+                "description": "The state of the capacity reservation. A capacity reservation is considered to be expiring if it is within the EC2\nreclaimation window. Only capacity-block reservations may be in this state.",
+                "enum": [
+                  "active",
+                  "expiring"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "availabilityZone",
+              "id",
+              "instanceMatchCriteria",
+              "instanceType",
+              "ownerID"
+            ],
+            "type": "object",
+            "additionalProperties": false
+          },
+          "type": "array"
+        },
+        "conditions": {
+          "items": {
+            "description": "Condition aliases the upstream type and adds additional helper methods",
+            "properties": {
+              "lastTransitionTime": {
+                "description": "lastTransitionTime is the last time the condition transitioned from one status to another.\nThis should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.",
+                "format": "date-time",
+                "type": "string"
+              },
+              "message": {
+                "description": "message is a human readable message indicating details about the transition.\nThis may be an empty string.",
+                "maxLength": 32768,
+                "type": "string"
+              },
+              "observedGeneration": {
+                "description": "observedGeneration represents the .metadata.generation that the condition was set based upon.\nFor instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date\nwith respect to the current state of the instance.",
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "description": "reason contains a programmatic identifier indicating the reason for the condition's last transition.\nProducers of specific condition types may define expected values and meanings for this field,\nand whether the values are considered a guaranteed API.\nThe value should be a CamelCase string.\nThis field may not be empty.",
+                "maxLength": 1024,
+                "minLength": 1,
+                "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+                "type": "string"
+              },
+              "status": {
+                "description": "status of the condition, one of True, False, Unknown.",
+                "enum": [
+                  "True",
+                  "False",
+                  "Unknown"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "description": "type of condition in CamelCase or in foo.example.com/CamelCase.",
+                "maxLength": 316,
+                "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "lastTransitionTime",
+              "message",
+              "reason",
+              "status",
+              "type"
+            ],
+            "type": "object",
+            "additionalProperties": false
+          },
+          "type": "array"
+        },
+        "instanceProfile": {
+          "description": "InstanceProfile contains the resolved instance profile for the role",
+          "type": "string"
+        },
+        "securityGroups": {
+          "description": "SecurityGroups contains the current Security Groups values that are available to the\ncluster under the SecurityGroups selectors.",
+          "items": {
+            "description": "SecurityGroup contains resolved SecurityGroup selector values utilized for node launch",
+            "properties": {
+              "id": {
+                "description": "ID of the security group",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the security group",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object",
+            "additionalProperties": false
+          },
+          "type": "array"
+        },
+        "subnets": {
+          "description": "Subnets contains the current Subnet values that are available to the\ncluster under the subnet selectors.",
+          "items": {
+            "description": "Subnet contains resolved Subnet selector values utilized for node launch",
+            "properties": {
+              "id": {
+                "description": "ID of the subnet",
+                "type": "string"
+              },
+              "zone": {
+                "description": "The associated availability zone",
+                "type": "string"
+              },
+              "zoneID": {
+                "description": "The associated availability zone ID",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "zone"
+            ],
+            "type": "object",
+            "additionalProperties": false
+          },
+          "type": "array"
+        }
+      },
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "spec"
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

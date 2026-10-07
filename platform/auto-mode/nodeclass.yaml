@@ -1,0 +1,22 @@
+apiVersion: eks.amazonaws.com/v1
+kind: NodeClass
+metadata:
+  name: development
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  role: otel-demo-eks-custom-nodes
+  subnetSelectorTerms:
+    - tags:
+        kubernetes.io/cluster/otel-demo-eks: shared
+        kubernetes.io/role/internal-elb: "1"
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: otel-demo-eks
+  ephemeralStorage:
+    size: 80Gi
+    iops: 3000
+    throughput: 125
+  networkPolicy: DefaultAllow
+  advancedNetworking:
+    associatePublicIPAddress: false

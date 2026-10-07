@@ -37,6 +37,17 @@ variable "single_nat_gateway" {
   default     = false
 }
 
+variable "auto_mode_builtin_node_pools" {
+  description = "Temporary migration override; leave empty once custom Auto Mode capacity is bootstrapped."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(distinct(var.auto_mode_builtin_node_pools)) == length(var.auto_mode_builtin_node_pools) && alltrue([for pool in var.auto_mode_builtin_node_pools : contains(["system", "general-purpose"], pool)])
+    error_message = "Use only system and/or general-purpose, or an empty list."
+  }
+}
+
 variable "kubernetes_version" {
   description = "Supported EKS minor version. AWS lists 1.36 in standard support through August 2, 2027 (verified September 10, 2026)."
   type        = string
@@ -63,6 +74,12 @@ variable "metrics_server_version" {
     condition     = can(regex("^v[0-9]+\\.[0-9]+\\.[0-9]+-eksbuild\\.[0-9]+$", var.metrics_server_version))
     error_message = "Supply an exact EKS add-on version such as v0.9.0-eksbuild.11."
   }
+}
+
+variable "enable_metrics_server" {
+  description = "Disable only for the first apply of an empty cluster, then bootstrap the custom NodePool and apply again with the default true."
+  type        = bool
+  default     = true
 }
 
 variable "ecr_force_delete" {

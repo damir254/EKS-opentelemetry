@@ -15,9 +15,9 @@ output "auto_mode_node_pools" {
 }
 
 output "node_role_arn" {
-  value = aws_iam_role.nodes.arn
+  value = aws_iam_role.custom_nodes.arn
 }
 
 output "addon_versions" {
-  value = { metrics-server = aws_eks_addon.metrics_server.addon_version }
+  value = var.enable_metrics_server ? { metrics-server = aws_eks_addon.metrics_server[0].addon_version } : {}
 }
