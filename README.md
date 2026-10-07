@@ -12,8 +12,8 @@ delivery, progressive rollouts and observability. The configuration targets
   NAT gateways, ECR repositories, IAM and Secrets Manager. Terraform state uses
   encrypted, versioned S3 storage with locking. Auto Mode manages compute,
   networking, load balancing and EBS provisioning.
-  A custom pool uses eligible `m7i-flex.large` instances and consolidates only
-  empty nodes; built-in pools are disabled.
+  A custom pool uses eligible `m7i-flex.large` instances and consolidates empty
+  or underutilized nodes; built-in pools are disabled.
 - **Delivery:** Argo CD reconciles the platform and demo from Git. GitHub Actions
   tests services, scans one image build, then publishes and signs that artifact.
   Image Updater writes successful release tags back to Git. Infrastructure CI
@@ -27,6 +27,10 @@ delivery, progressive rollouts and observability. The configuration targets
   for settings, users and dashboards.
 - **Access and availability:** Grafana and Argo CD use a shared HTTPS ALB with
   ACM certificates, a CIDR allowlist and Route 53 records managed by ExternalDNS.
+  The demo uses `https://demo.damircloud.com`; Locust uses
+  `https://loadgen.damircloud.com`, restricted to the operator CIDR. These two
+  hosts share a separate HTTPS ALB. Browser trace ingestion has request-size and
+  rate limits; the demo no longer exposes `/loadgen/`.
   Selected workloads use replicas and disruption budgets. Pod Identity and
   External Secrets supply AWS access and credentials outside Git.
 
@@ -44,7 +48,7 @@ images, configure kubeconfig and run `bash platform/auto-mode/bootstrap.sh`.
 Apply Terraform again with the default add-on setting. Then install Argo CD with
 the repository values and apply its root Application. GitOps initializes
 Grafana's database login and deploys the remaining platform.
-See [custom pool bootstrap and migration](docs/auto-mode-migration.md).
+
 
 Grafana RDS defaults to `db.t3.micro`, 20 GiB of `gp2` storage with autoscaling
 disabled, and one day of automatic backups. Single-AZ database outages can affect
@@ -52,6 +56,6 @@ both Grafana replicas. See [RDS settings](docs/grafana-rds.md) for configuration
 and the Paid plan availability option.
 
 This is a development/portfolio environment. Demo PostgreSQL, Kafka and Valkey
-data are ephemeral; the demo ingress uses public HTTP. Keycloak integration is
+data are ephemeral. Keycloak integration is
 planned, and traces currently produce metrics/debug output without a searchable
 trace backend. Review the current deployment blockers before starting AWS resources.

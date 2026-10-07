@@ -123,6 +123,31 @@ spec:
           port: {{ (index .Values.services "frontend-proxy").containerPort }}
 {{- end }}
 
+{{- if and .Values.ingress.enabled .Values.ingress.loadGenerator.enabled (index .Values.services "load-generator").enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-alb-load-generator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "otel-demo.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: load-generator
+  policyTypes: [Ingress]
+  ingress:
+    # Client CIDRs are checked by the ALB; the pod sees the ALB's private IP.
+    - from:
+        - ipBlock:
+            cidr: {{ required "networkPolicy.albSourceCidr is required for ALB IP targets" .Values.networkPolicy.albSourceCidr | quote }}
+      ports:
+        - protocol: TCP
+          port: {{ (index .Values.services "load-generator").containerPort }}
+{{- end }}
+
 {{- if .Values.otelCollector.enabled }}
 ---
 apiVersion: networking.k8s.io/v1

@@ -6,6 +6,8 @@ metadata:
     argocd.argoproj.io/sync-wave: "0"
 spec:
   scheme: internet-facing
+  ipAddressType: ipv4
+  sslPolicy: ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09
 ---
 apiVersion: networking.k8s.io/v1
 kind: IngressClass

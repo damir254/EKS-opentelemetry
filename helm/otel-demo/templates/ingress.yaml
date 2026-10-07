@@ -1,20 +1,42 @@
 {{- if .Values.ingress.enabled }}
+{{- $annotations := deepCopy (.Values.ingress.annotations | default dict) }}
+{{- if ne (get $annotations "alb.ingress.kubernetes.io/listen-ports" | fromJsonArray | toJson) "[{\"HTTPS\":443}]" }}
+{{- fail "Demo ingress requires only an HTTPS listener on port 443" }}
+{{- end }}
+{{- if not (regexMatch "^arn:aws(-[a-z-]+)?:acm:[a-z0-9-]+:[0-9]{12}:certificate/[a-f0-9-]+$" (get $annotations "alb.ingress.kubernetes.io/certificate-arn")) }}
+{{- fail "Demo ingress requires an issued ACM certificate ARN" }}
+{{- end }}
+{{- $loadgen := .Values.ingress.loadGenerator }}
+{{- if $loadgen.enabled }}
+{{- if not (index .Values.services "load-generator").enabled }}
+{{- fail "Locust ingress requires the load-generator service to be enabled" }}
+{{- end }}
+{{- if eq $loadgen.host .Values.ingress.host }}
+{{- fail "Locust ingress must use a different hostname from the demo" }}
+{{- end }}
+{{- range $cidr := $loadgen.allowedCIDRs }}
+{{- if not (regexMatch "^([0-9]{1,3}\\.){3}[0-9]{1,3}/([1-9]|[12][0-9]|3[0-2])$" $cidr) }}
+{{- fail "Locust ingress requires explicit IPv4 CIDRs; unrestricted /0 is forbidden" }}
+{{- end }}
+{{- end }}
+{{- if hasKey $annotations "alb.ingress.kubernetes.io/conditions.load-generator" }}
+{{- fail "Set Locust source restrictions through ingress.loadGenerator.allowedCIDRs" }}
+{{- end }}
+{{- $_ := set $annotations "alb.ingress.kubernetes.io/conditions.load-generator" (list (dict "field" "source-ip" "sourceIpConfig" (dict "values" $loadgen.allowedCIDRs)) | toJson) }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Values.ingress.name }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "otel-demo.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- toYaml $annotations | nindent 4 }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - {{- with .Values.ingress.host }}
-      host: {{ . | quote }}
-      {{- end }}
+    - host: {{ required "Demo ingress requires a hostname" .Values.ingress.host | quote }}
       http:
         paths:
           - path: /
@@ -24,4 +46,16 @@ spec:
                 name: frontend-proxy
                 port:
                   number: {{ (index .Values.services "frontend-proxy").service.port }}
+    {{- if $loadgen.enabled }}
+    - host: {{ $loadgen.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: load-generator
+                port:
+                  number: {{ (index .Values.services "load-generator").service.port }}
+    {{- end }}
 {{- end }}

@@ -86,7 +86,7 @@ module "iam" {
   grafana_admin_secret_arn     = module.grafana_database.connection.admin_secret_arn
   grafana_credentials_arn      = module.secrets_manager.secret_arns["grafana-db-credentials"]
   external_dns_zone_id         = data.aws_route53_zone.dashboards.zone_id
-  dashboard_dns_names          = ["argocd.damircloud.com", "grafana.damircloud.com"]
+  dashboard_dns_names          = concat(["argocd.damircloud.com", "grafana.damircloud.com"], local.demo_dns_names)
   github_repository            = "damir254/EKS-opentelemetry"
   github_owner_id              = var.github_owner_id
   github_repository_id         = var.github_repository_id

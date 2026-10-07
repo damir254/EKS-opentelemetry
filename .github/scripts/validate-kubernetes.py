@@ -3,6 +3,7 @@
 import argparse
 from copy import deepcopy
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -167,6 +168,58 @@ def public_images(resources):
     ]}
 
 
+def validate_demo_access(resources):
+    config = documents(ROOT / "helm/otel-demo/environments/dev.yaml")[0]
+    settings = config["ingress"]
+    ingress = next((item for item in resources if item.get("kind") == "Ingress"
+                    and item["metadata"]["name"] == settings["name"]), None)
+    if ingress is None:
+        return
+    annotations = ingress["metadata"]["annotations"]
+    if json.loads(annotations["alb.ingress.kubernetes.io/listen-ports"]) != [{"HTTPS": 443}]:
+        raise ValueError("Demo/Locust must expose only HTTPS on port 443")
+    if not re.fullmatch(r"arn:aws(?:-[a-z-]+)?:acm:[a-z0-9-]+:\d{12}:certificate/[a-f0-9-]+",
+                        annotations.get("alb.ingress.kubernetes.io/certificate-arn", "")):
+        raise ValueError("Demo/Locust require an ACM certificate ARN")
+    expected = {settings["host"]: "frontend-proxy"}
+    locust = settings["loadGenerator"]
+    if locust["enabled"]:
+        expected[locust["host"]] = "load-generator"
+        cidrs = locust["allowedCIDRs"]
+        for cidr in cidrs:
+            network = ipaddress.ip_network(cidr)
+            if network.version != 4 or network.prefixlen == 0:
+                raise ValueError("Locust requires restricted IPv4 client CIDRs")
+        condition = json.loads(annotations.get("alb.ingress.kubernetes.io/conditions.load-generator", "[]"))
+        if condition != [{"field": "source-ip", "sourceIpConfig": {"values": cidrs}}]:
+            raise ValueError("Locust requires its ALB source-IP condition; a hostname alone is not protection")
+        policy = next((item for item in resources if item.get("kind") == "NetworkPolicy"
+                       and item["metadata"]["name"] == "otel-demo-allow-alb-load-generator"), None)
+        if policy is None or policy["spec"]["ingress"] != [{
+            "from": [{"ipBlock": {"cidr": config["networkPolicy"]["albSourceCidr"]}}],
+            "ports": [{"protocol": "TCP", "port": 8089}],
+        }]:
+            raise ValueError("Locust requires a VPC-source ingress NetworkPolicy on TCP 8089")
+    rules = ingress["spec"]["rules"]
+    actual = {rule.get("host"): [path["backend"]["service"]["name"] for path in rule["http"]["paths"]]
+              for rule in rules}
+    if len(rules) != len(expected) or actual != {host: [service] for host, service in expected.items()}:
+        raise ValueError("Demo and Locust must use separate, explicit host rules")
+    # A second, unrestricted Ingress must not bypass the protected Locust rule.
+    for item in resources:
+        if item.get("kind") == "Ingress" and item is not ingress and item["metadata"].get("namespace") == "dev":
+            for rule in item["spec"].get("rules", []):
+                if any(path["backend"].get("service", {}).get("name") == "load-generator"
+                       for path in rule["http"]["paths"]):
+                    raise ValueError("An additional Ingress must not expose Locust")
+    external_dns = next((item for item in resources if item.get("kind") == "Deployment"
+                         and item["metadata"]["name"] == "external-dns"), None)
+    if external_dns:
+        args = external_dns["spec"]["template"]["spec"]["containers"][0]["args"]
+        if not {"--ingress-class=alb", "--ingress-class=platform-dashboards"}.issubset(args):
+            raise ValueError("ExternalDNS must reconcile both demo and dashboard Ingress classes")
+
+
 def validate(work, argocd_version, image_inventory=None):
     for directory in ("helm", "platform", ".github/workflows"):
         for path in (ROOT / directory).rglob("*.yaml"):
@@ -267,6 +320,7 @@ def validate(work, argocd_version, image_inventory=None):
                         resources.extend(documents(manifest))
 
     validate_grafana_admin(resources)
+    validate_demo_access(resources)
     if image_inventory:
         image_inventory.parent.mkdir(parents=True, exist_ok=True)
         inventory = public_images(resources)

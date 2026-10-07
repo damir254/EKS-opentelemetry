@@ -48,10 +48,6 @@ services:
       timeoutSeconds: 5
       failureThreshold: 3
     env:
-      LOCUST_WEB_PORT:
-        value: "8089"
-      LOCUST_WEB_HOST:
-        value: load-generator
       ENVOY_PORT:
         value: "8080"
       ENVOY_ADDR:

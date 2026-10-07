@@ -10,6 +10,9 @@ schemas, duplicate YAML keys and floating images in project-owned workloads fail
 validation. Chart-managed images follow their pinned chart versions.
 Grafana validation requires AWS-backed admin credentials for both the server and
 reload sidecars; recovery tests check password handling and sync prerequisites.
+Demo access guards require HTTPS, separate demo/Locust host rules, restricted
+Locust source IPs, ALB ingress on its UI port and both ExternalDNS class filters.
+Runtime tests also verify the demo's old Locust routes return 404.
 
 Service delivery uses **one build**:
 

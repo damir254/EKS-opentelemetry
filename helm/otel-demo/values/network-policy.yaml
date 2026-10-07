@@ -49,7 +49,6 @@ networkPolicy:
       # Feature flags execute in the browser via frontend-proxy /flagservice/.
     frontend-proxy:
       frontend: [8080]
-      load-generator: [8089]
       image-provider: [8081]
       flagd: [8013]
       otel-collector: [4317, 4319] # proxy telemetry + isolated browser trace receiver

@@ -26,12 +26,12 @@ variable "grafana_credentials_arn" {
 }
 
 variable "external_dns_zone_id" {
-  description = "Existing public hosted zone permitted for dashboard DNS updates."
+  description = "Existing public hosted zone permitted for platform DNS updates."
   type        = string
 }
 
 variable "dashboard_dns_names" {
-  description = "Dashboard hostnames whose aliases and ownership TXT records ExternalDNS may update."
+  description = "Platform hostnames whose aliases and ownership TXT records ExternalDNS may update."
   type        = list(string)
 }
 

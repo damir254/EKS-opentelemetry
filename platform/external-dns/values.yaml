@@ -7,7 +7,9 @@ domainFilters:
 extraArgs:
   aws-zone-type: public
   zone-id-filter: Z073111524AXTAZKZBUF5
-  ingress-class: platform-dashboards
+  ingress-class:
+    - platform-dashboards
+    - alb
   exclude-record-types: AAAA
 managedRecordTypes:
   - A

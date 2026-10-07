@@ -225,6 +225,27 @@ HTTPServer(('0.0.0.0', 8080), Handler).serve_forever()
         self.assertTrue(set(statuses).issubset({200, 429}), statuses)
         self.assertEqual(self.request(self.proxy_ports[8080], "GET", "/")[0], 200)
 
+    def test_07_load_generator_ui_and_control_paths_are_not_public(self):
+        for method, path in [("GET", "/loadgen"), ("GET", "/loadgen/"),
+                             ("POST", "/loadgen/swarm"), ("POST", "/loadgen/stop")]:
+            with self.subTest(method=method, path=path):
+                self.assertEqual(self.request(self.proxy_ports[8080], method, path,
+                                              headers={"x-envoy-fault-delay-request": "60000"})[0], 404)
+
+    def test_08_load_generation_uses_internal_target_and_separate_alb_access(self):
+        self.assertEqual(self.resource("Service", "load-generator")["spec"]["type"], "ClusterIP")
+        loadgen = self.resource("Deployment", "load-generator")["spec"]["template"]["spec"]["containers"][0]
+        target = next(env["value"] for env in loadgen["env"] if env["name"] == "LOCUST_HOST")
+        self.assertEqual(target, "http://frontend-proxy:8080")
+        self.assertEqual(self.resource("NetworkPolicy", "otel-demo-load-generator")["spec"]["ingress"], [])
+        alb = self.resource("NetworkPolicy", "otel-demo-allow-alb-load-generator")["spec"]
+        self.assertEqual(alb["podSelector"]["matchLabels"]["app.kubernetes.io/component"], "load-generator")
+        self.assertEqual(alb["ingress"], [{"from": [{"ipBlock": {"cidr": "10.0.0.0/16"}}],
+                                           "ports": [{"protocol": "TCP", "port": 8089}]}])
+        egress = self.resource("NetworkPolicy", "otel-demo-frontend-proxy")["spec"]["egress"]
+        self.assertFalse(any(peer.get("podSelector", {}).get("matchLabels", {}).get("app.kubernetes.io/component")
+                             == "load-generator" for rule in egress for peer in rule.get("to", [])))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

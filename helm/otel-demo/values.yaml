@@ -68,3 +68,5 @@ paymentAnalysis:
   prometheusAddress: ""
 ingress:
   enabled: false
+  loadGenerator:
+    enabled: false

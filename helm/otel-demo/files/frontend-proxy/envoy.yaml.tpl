@@ -51,9 +51,15 @@ static_resources:
                           disabled: true
                       routes:
                         - match: { path: "/loadgen" }
-                          redirect: { path_redirect: "/loadgen/" }
+                          direct_response: { status: 404 }
+                          typed_per_filter_config:
+                            envoy.filters.http.fault:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault
                         - match: { prefix: "/loadgen/" }
-                          route: { cluster: loadgen, prefix_rewrite: "/" }
+                          direct_response: { status: 404 }
+                          typed_per_filter_config:
+                            envoy.filters.http.fault:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault
                         - match:
                             path: /otlp-http/v1/traces
                             headers:
@@ -320,19 +326,6 @@ static_resources:
                     socket_address:
                       address: {{ $env.FLAGD_UI_HOST.value | quote }}
                       port_value: {{ $env.FLAGD_UI_PORT.value }}
-    - name: loadgen
-      type: STRICT_DNS
-      lb_policy: ROUND_ROBIN
-      typed_dns_resolver_config: *dns_resolver
-      load_assignment:
-        cluster_name: loadgen
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: {{ $env.LOCUST_WEB_HOST.value | quote }}
-                      port_value: {{ $env.LOCUST_WEB_PORT.value }}
     - name: grafana
       type: STRICT_DNS
       lb_policy: ROUND_ROBIN
