@@ -92,3 +92,6 @@ jobs:
 
       - name: Test manifest guards and image release gates
         run: python -m unittest discover -s .github/scripts/tests -v
+
+      - name: Test browser telemetry with pinned Envoy and Collector
+        run: python .github/scripts/test-browser-telemetry.py

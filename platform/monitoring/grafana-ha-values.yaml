@@ -1,5 +1,11 @@
 # Active RDS backend, initialized by the monitoring database chart before Grafana.
 grafana:
+  # ESO supplies a stable login for Grafana and its dashboard/datasource sidecars.
+  # The initial password seeds an empty RDS database; existing accounts need reset.
+  admin:
+    existingSecret: monitoring-grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
   replicas: 2
   deploymentStrategy:
     type: RollingUpdate

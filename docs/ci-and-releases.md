@@ -3,9 +3,13 @@
 Infrastructure CI runs on every PR and push to `main`, including GitOps commits.
 It validates both Terraform configurations without AWS credentials, lints
 workflows, renders the actual Argo CD Helm sources, validates built-in/custom
-resource schemas, and runs database-bootstrap and release-gate tests. Missing
+resource schemas, and runs database-bootstrap and release-gate tests. It also tests
+browser ingestion against pinned Envoy/Collector images on an isolated Docker
+network. Missing
 schemas, duplicate YAML keys and floating images in project-owned workloads fail
 validation. Chart-managed images follow their pinned chart versions.
+Grafana validation requires AWS-backed admin credentials for both the server and
+reload sidecars; recovery tests check password handling and sync prerequisites.
 
 Service delivery uses **one build**:
 
@@ -74,6 +78,7 @@ python3 -m pip install -r .github/scripts/requirements.txt
 bash .github/scripts/validate-kubernetes.sh
 python3 -m unittest discover -s .github/scripts/tests -v
 python3 -m unittest discover -s platform/monitoring/database/tests -v
+python3 .github/scripts/test-browser-telemetry.py # Linux and Docker required
 actionlint .github/workflows/*.yaml
 terraform fmt -check -recursive terraform
 terraform -chdir=terraform validate

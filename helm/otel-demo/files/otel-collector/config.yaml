@@ -8,12 +8,31 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+  # Public browser traffic cannot reach the backend's general OTLP receivers.
+  otlp/browser:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4319
+        max_request_body_size: 262144
 processors:
   memory_limiter:
     check_interval: 1s
     limit_mib: 192
     spike_limit_mib: 64
   batch: {}
+  resource/browser:
+    attributes:
+      - {key: service.name, value: frontend-web, action: upsert}
+      - {key: service.namespace, value: browser, action: upsert}
+      - {key: rollout.pod_template_hash, action: delete}
+      - {key: service.version, action: delete}
+  attributes/browser:
+    # Browser-supplied labels must not masquerade as rollout/backend identity.
+    actions:
+      - {key: service.name, action: delete}
+      - {key: service.namespace, action: delete}
+      - {key: rollout.pod_template_hash, action: delete}
+      - {key: service.version, action: delete}
 connectors:
   span_metrics:
     namespace: otel_demo.span.metrics
@@ -55,6 +74,10 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]
+      exporters: [debug, span_metrics]
+    traces/browser:
+      receivers: [otlp/browser]
+      processors: [memory_limiter, resource/browser, attributes/browser, batch]
       exporters: [debug, span_metrics]
     metrics:
       receivers: [otlp, span_metrics]

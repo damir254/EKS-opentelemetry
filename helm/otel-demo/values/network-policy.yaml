@@ -52,7 +52,7 @@ networkPolicy:
       load-generator: [8089]
       image-provider: [8081]
       flagd: [8013]
-      otel-collector: [4317, 4318] # proxy telemetry + browser /otlp-http/ route
+      otel-collector: [4317, 4319] # proxy telemetry + isolated browser trace receiver
       # Other optional demo UI routes have no deployed backend here.
     image-provider:
       otel-collector: [4317]

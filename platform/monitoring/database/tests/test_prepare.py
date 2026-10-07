@@ -45,6 +45,9 @@ class CredentialPreparationTests(unittest.TestCase):
         self.assertEqual(credentials["username"], "grafana")
         self.assertGreaterEqual(len(credentials["password"]), 48)
         self.assertEqual(len(credentials["secret_key"]), 64)
+        self.assertEqual(credentials["grafana_admin_user"], "admin")
+        self.assertGreaterEqual(len(credentials["grafana_admin_password"]), 48)
+        self.assertNotEqual(credentials["grafana_admin_password"], credentials["password"])
         for name in ("application.json", "admin.pgpass", "initialize.sql"):
             self.assertEqual((self.directory / name).stat().st_mode & 0o777, 0o600)
 
@@ -56,6 +59,42 @@ class CredentialPreparationTests(unittest.TestCase):
         self.assertEqual(credentials["password"], self.existing["password"])
         self.assertEqual(credentials["secret_key"], self.existing["secret_key"])
         self.assertEqual((self.directory / "publish-needed").read_text(), "yes")
+
+    def test_upgrade_adds_dashboard_login_without_changing_database_credentials(self):
+        self.write_inputs(self.existing)
+        bootstrap.prepare(self.directory)
+        credentials = self.credentials()
+        self.assertEqual(credentials["password"], self.existing["password"])
+        self.assertEqual(credentials["secret_key"], self.existing["secret_key"])
+        self.assertEqual(credentials["grafana_admin_user"], "admin")
+        self.assertNotIn(credentials["grafana_admin_password"],
+                         (self.directory / "initialize.sql").read_text())
+        self.write_inputs(credentials)
+        bootstrap.prepare(self.directory)
+        self.assertEqual(self.credentials(), credentials)
+        self.assertEqual((self.directory / "publish-needed").read_text(), "no")
+
+    def test_dashboard_credentials_survive_database_recreation(self):
+        previous = {**self.existing, "grafana_admin_user": "admin",
+                    "grafana_admin_password": "test-only-dashboard-password"}
+        self.write_inputs(previous)
+        bootstrap.prepare(self.directory)
+        self.assertEqual(self.credentials()["grafana_admin_password"], previous["grafana_admin_password"])
+
+    def test_invalid_dashboard_credentials_are_not_replaced_or_logged(self):
+        cases = [{"grafana_admin_user": "admin"},
+                 {"grafana_admin_user": "another_user", "grafana_admin_password": "test-private"},
+                 {"grafana_admin_user": "admin", "grafana_admin_password": "test-private\n"},
+                 {"grafana_admin_user": "admin", "grafana_admin_password": None}]
+        for fields in cases:
+            with self.subTest(fields=list(fields)):
+                self.write_inputs({**self.existing, **fields})
+                result = subprocess.run([sys.executable, str(SCRIPT), str(self.directory)],
+                                        capture_output=True, text=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertNotIn("test-private", result.stdout + result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+                self.assertFalse((self.directory / "application.json").exists())
 
     def test_retry_keeps_encryption_key_and_avoids_new_secret_version(self):
         bootstrap.prepare(self.directory)

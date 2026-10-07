@@ -3,6 +3,11 @@ services:
   frontend-proxy:
     enabled: true
     replicaCount: 2
+    # Anonymous browser traces: limits apply independently to each proxy pod.
+    browserTelemetry:
+      maxRequestBytes: 262144 # 256 KiB; also capped by the browser Collector receiver.
+      requestsPerSecond: 10
+      burst: 20
     topologySpread:
       enabled: true
       zone: true
@@ -97,8 +102,8 @@ services:
         value: $(OTEL_COLLECTOR_NAME)
       OTEL_COLLECTOR_PORT_GRPC:
         value: "4317"
-      OTEL_COLLECTOR_PORT_HTTP:
-        value: "4318"
+      OTEL_COLLECTOR_PORT_BROWSER_HTTP:
+        value: "4319"
       OTEL_RESOURCE_ATTRIBUTES_EXTRA:
         value: service.criticality=critical
     resources:

@@ -42,6 +42,8 @@ spec:
               containerPort: 4317
             - name: http
               containerPort: 4318
+            - name: http-browser
+              containerPort: 4319
             - name: http-health
               containerPort: 13133
             - name: http-metrics
@@ -77,6 +79,9 @@ spec:
     - name: http
       port: 4318
       targetPort: http
+    - name: http-browser
+      port: 4319
+      targetPort: http-browser
     - name: http-metrics
       port: 8889
       targetPort: http-metrics

@@ -87,6 +87,38 @@ def validate_images(resources):
                 raise ValueError(f'{resource["metadata"]["name"]}/{container["name"]}: floating image {image}')
 
 
+def validate_grafana_admin(resources):
+    deployment = next((item for item in resources if item.get("kind") == "Deployment"
+                       and item["metadata"]["name"] == "monitoring-grafana"), None)
+    if deployment is None:
+        return
+    if any(item.get("kind") == "Secret" and item["metadata"]["name"] == "monitoring-grafana"
+           for item in resources):
+        raise ValueError("Grafana must not render a generated admin Secret alongside its persistent database")
+    provider = next((item for item in resources if item.get("kind") == "ExternalSecret"
+                     and item["metadata"]["name"] == "monitoring-grafana-admin"), None)
+    if provider is None:
+        raise ValueError("Grafana's stable admin Secret requires an ExternalSecret")
+    mappings = {item["secretKey"]: item["remoteRef"] for item in provider["spec"]["data"]}
+    for key, property_name in [("admin-user", "grafana_admin_user"), ("admin-password", "grafana_admin_password")]:
+        if mappings.get(key) != {"key": "grafana-db-credentials", "property": property_name}:
+            raise ValueError("Grafana admin credentials must come from their dedicated AWS bundle fields")
+    def wave(resource):
+        return int(resource["metadata"].get("annotations", {}).get("argocd.argoproj.io/sync-wave", "0"))
+    hook = next(item for item in resources if item.get("kind") == "Job"
+                and item["metadata"]["name"] == "grafana-db-bootstrap")
+    if not wave(hook) < wave(provider) < wave(deployment):
+        raise ValueError("Initialize credentials, then sync the admin Secret, then start Grafana")
+    for container in deployment["spec"]["template"]["spec"]["containers"]:
+        fields = {env["name"]: env for env in container.get("env", [])}
+        for variable, key in [("GF_SECURITY_ADMIN_USER", "admin-user"), ("GF_SECURITY_ADMIN_PASSWORD", "admin-password"),
+                              ("REQ_USERNAME", "admin-user"), ("REQ_PASSWORD", "admin-password")]:
+            if variable in fields:
+                reference = fields[variable].get("valueFrom", {}).get("secretKeyRef", {})
+                if reference != {"name": "monitoring-grafana-admin", "key": key}:
+                    raise ValueError(f'Grafana/{container["name"]}/{variable} must use the stable admin Secret')
+
+
 def public_images(resources):
     """Include workloads, init containers and images created by controllers."""
     images = set()
@@ -234,6 +266,7 @@ def validate(work, argocd_version, image_inventory=None):
                     for manifest in sorted(directory.glob(include)):
                         resources.extend(documents(manifest))
 
+    validate_grafana_admin(resources)
     if image_inventory:
         image_inventory.parent.mkdir(parents=True, exist_ok=True)
         inventory = public_images(resources)

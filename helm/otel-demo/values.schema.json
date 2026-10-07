@@ -47,6 +47,16 @@
   },
   "definitions": {
     "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+    "browserTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maxRequestBytes": {"type": "integer", "minimum": 1, "maximum": 262144},
+        "requestsPerSecond": {"type": "integer", "minimum": 1},
+        "burst": {"type": "integer", "minimum": 1}
+      },
+      "required": ["maxRequestBytes", "requestsPerSecond", "burst"]
+    },
     "image": {
       "type": "object",
       "additionalProperties": false,
@@ -83,6 +93,7 @@
       "properties": {
         "enabled": {"type": "boolean"},
         "replicaCount": {"type": "integer", "minimum": 0},
+        "browserTelemetry": {"$ref": "#/definitions/browserTelemetry"},
         "image": {"$ref": "#/definitions/image"},
         "containerPort": {"$ref": "#/definitions/port"},
         "service": {

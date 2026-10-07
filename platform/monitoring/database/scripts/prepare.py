@@ -14,6 +14,25 @@ def write_private(path, text):
     path.chmod(0o600)
 
 
+def admin_credentials(existing):
+    """Keep the dashboard login stable, including upgrades of older bundles."""
+    keys = {"grafana_admin_user", "grafana_admin_password"}
+    present = keys.intersection(existing)
+    if present and present != keys:
+        raise ValueError("Incomplete Grafana dashboard credentials")
+    credentials = {key: existing[key] for key in keys} if present else {
+        "grafana_admin_user": "admin",
+        "grafana_admin_password": secrets.token_urlsafe(48),
+    }
+    password = credentials["grafana_admin_password"]
+    if credentials["grafana_admin_user"] != "admin":
+        raise ValueError("Unexpected Grafana dashboard administrator")
+    if (not isinstance(password, str) or not password or password != password.strip()
+            or any(c in password for c in "\x00\n\r")):
+        raise ValueError("Invalid Grafana dashboard password")
+    return credentials
+
+
 def prepare(directory):
     database = json.loads((directory / "database.json").read_text())
     admin = json.loads((directory / "admin.json").read_text())
@@ -51,6 +70,7 @@ def prepare(directory):
     credentials = {
         "host": f"{host}:{port}", "username": "grafana",
         "password": password, "secret_key": secret_key,
+        **admin_credentials(existing),
     }
     write_private(directory / "application.json", json.dumps(credentials))
     write_private(directory / "publish-needed", "yes" if credentials != existing else "no")

@@ -1,6 +1,10 @@
 {{- $service := index .Values.services "frontend-proxy" -}}
 {{- $env := mergeOverwrite (deepCopy .Values.defaultEnv) $service.env -}}
 {{- $collectorHost := $env.OTEL_COLLECTOR_HOST.value | replace "$(OTEL_COLLECTOR_NAME)" $env.OTEL_COLLECTOR_NAME.value -}}
+{{- $browser := required "frontend-proxy.browserTelemetry is required" $service.browserTelemetry -}}
+{{- if or (lt (int $browser.maxRequestBytes) 1) (lt (int $browser.requestsPerSecond) 1) (lt (int $browser.burst) (int $browser.requestsPerSecond)) -}}
+{{- fail "frontend-proxy.browserTelemetry requires positive limits and burst >= requestsPerSecond" -}}
+{{- end -}}
 # Helm-rendered routing/telemetry configuration from the OpenTelemetry demo.
 # Source image: ghcr.io/open-telemetry/demo@sha256:b8ca03e80482c08b92a356c22cd45fca6f9dd0a477ef1b0d469134d1cb8c6961
 # Copyright The OpenTelemetry Authors
@@ -40,17 +44,70 @@ static_resources:
                     - name: frontend
                       domains:
                         - "*"
+                      typed_per_filter_config:
+                        # Buffering is enabled only on the browser trace route.
+                        envoy.filters.http.buffer:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.buffer.v3.BufferPerRoute
+                          disabled: true
                       routes:
                         - match: { path: "/loadgen" }
                           redirect: { path_redirect: "/loadgen/" }
                         - match: { prefix: "/loadgen/" }
                           route: { cluster: loadgen, prefix_rewrite: "/" }
-                        - match: { prefix: "/otlp-http/" }
+                        - match:
+                            path: /otlp-http/v1/traces
+                            headers:
+                              - name: ":method"
+                                string_match: {exact: POST}
+                              - name: content-type
+                                string_match:
+                                  safe_regex:
+                                    regex: '^application/(json|x-protobuf)(;.*)?$'
+                              - name: content-encoding
+                                treat_missing_header_as_empty: true
+                                string_match:
+                                  safe_regex: {regex: '^(identity)?$'}
                           route:
-                            {
-                              cluster: opentelemetry_collector_http,
-                              prefix_rewrite: "/",
-                            }
+                            cluster: opentelemetry_collector_browser
+                            prefix_rewrite: /v1/traces
+                            timeout: 5s
+                            max_stream_duration: {max_stream_duration: 10s}
+                          typed_per_filter_config:
+                            envoy.filters.http.local_ratelimit:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                              stat_prefix: browser_telemetry
+                              token_bucket:
+                                max_tokens: {{ int $browser.burst }}
+                                tokens_per_fill: {{ int $browser.requestsPerSecond }}
+                                fill_interval: 1s
+                              filter_enabled: {default_value: {numerator: 100, denominator: HUNDRED}}
+                              filter_enforced: {default_value: {numerator: 100, denominator: HUNDRED}}
+                            envoy.filters.http.buffer:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.buffer.v3.BufferPerRoute
+                              buffer: {max_request_bytes: {{ int $browser.maxRequestBytes }}}
+                            envoy.filters.http.fault: &browser_no_fault
+                              # Public telemetry cannot request the demo's header-based fault delay.
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault
+                        - match:
+                            path: /otlp-http/v1/traces
+                            headers:
+                              - name: ":method"
+                                string_match: {exact: POST}
+                          direct_response:
+                            status: 415
+                            body: {inline_string: "Use uncompressed OTLP JSON or protobuf.\n"}
+                          typed_per_filter_config: {envoy.filters.http.fault: *browser_no_fault}
+                        - match: {path: /otlp-http/v1/traces}
+                          direct_response: {status: 405}
+                          typed_per_filter_config: {envoy.filters.http.fault: *browser_no_fault}
+                          response_headers_to_add:
+                            - header: {key: allow, value: POST}
+                        - match: {path: /otlp-http}
+                          direct_response: {status: 404}
+                          typed_per_filter_config: {envoy.filters.http.fault: *browser_no_fault}
+                        - match: {prefix: /otlp-http/}
+                          direct_response: {status: 404}
+                          typed_per_filter_config: {envoy.filters.http.fault: *browser_no_fault}
                         - match: { path: "/jaeger" }
                           redirect: { path_redirect: "/jaeger/" }
                         - match: { prefix: "/jaeger/" }
@@ -100,6 +157,16 @@ static_resources:
                         - match: { prefix: "/" }  # Default/catch-all route - keep last since prefix:"/" matches everything
                           route: { cluster: frontend }
                 http_filters:
+                  - name: envoy.filters.http.local_ratelimit
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                      stat_prefix: browser_telemetry
+                      # Only the trace route supplies/enables its token bucket.
+                      filter_enabled: {default_value: {numerator: 0, denominator: HUNDRED}}
+                  - name: envoy.filters.http.buffer
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.buffer.v3.Buffer
+                      max_request_bytes: {{ int $browser.maxRequestBytes }}
                   - name: envoy.filters.http.fault
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault
@@ -188,19 +255,19 @@ static_resources:
                     socket_address:
                       address: {{ $collectorHost | quote }}
                       port_value: {{ $env.OTEL_COLLECTOR_PORT_GRPC.value }}
-    - name: opentelemetry_collector_http
+    - name: opentelemetry_collector_browser
       type: STRICT_DNS
       lb_policy: ROUND_ROBIN
       typed_dns_resolver_config: *dns_resolver
       load_assignment:
-        cluster_name: opentelemetry_collector_http
+        cluster_name: opentelemetry_collector_browser
         endpoints:
           - lb_endpoints:
               - endpoint:
                   address:
                     socket_address:
                       address: {{ $collectorHost | quote }}
-                      port_value: {{ $env.OTEL_COLLECTOR_PORT_HTTP.value }}
+                      port_value: {{ $env.OTEL_COLLECTOR_PORT_BROWSER_HTTP.value }}
     - name: frontend
       type: STRICT_DNS
       lb_policy: ROUND_ROBIN

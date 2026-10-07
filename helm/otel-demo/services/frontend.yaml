@@ -65,7 +65,8 @@ services:
       WEB_OTEL_SERVICE_NAME:
         value: frontend-web
       PUBLIC_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:
-        value: http://localhost:8080/otlp-http/v1/traces
+        # Resolve against the page origin, including its current ALB/DNS scheme.
+        value: /otlp-http/v1/traces
       OTEL_RESOURCE_ATTRIBUTES_EXTRA:
         value: service.criticality=critical
     resources:
