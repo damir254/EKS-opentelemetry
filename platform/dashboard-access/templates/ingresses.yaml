@@ -1,4 +1,5 @@
 {{- if .Values.enabled }}
+{{- $sourceCondition := list (dict "field" "source-ip" "sourceIpConfig" (dict "values" .Values.allowedCIDRs)) | toJson }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,6 +8,7 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     alb.ingress.kubernetes.io/backend-protocol: HTTPS
+    alb.ingress.kubernetes.io/conditions.argocd-server: {{ $sourceCondition | quote }}
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
     external-dns.kubernetes.io/alias: "true"
     alb.ingress.kubernetes.io/healthcheck-path: /healthz
@@ -36,6 +38,7 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     # ACM TLS terminates at the ALB; Grafana's service stays inside the VPC.
     alb.ingress.kubernetes.io/backend-protocol: HTTP
+    alb.ingress.kubernetes.io/conditions.monitoring-grafana: {{ $sourceCondition | quote }}
     external-dns.kubernetes.io/alias: "true"
     alb.ingress.kubernetes.io/healthcheck-path: /api/health
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"

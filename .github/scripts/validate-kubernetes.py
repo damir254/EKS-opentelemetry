@@ -178,9 +178,10 @@ def validate_demo_access(resources):
     annotations = ingress["metadata"]["annotations"]
     if json.loads(annotations["alb.ingress.kubernetes.io/listen-ports"]) != [{"HTTPS": 443}]:
         raise ValueError("Demo/Locust must expose only HTTPS on port 443")
-    if not re.fullmatch(r"arn:aws(?:-[a-z-]+)?:acm:[a-z0-9-]+:\d{12}:certificate/[a-f0-9-]+",
-                        annotations.get("alb.ingress.kubernetes.io/certificate-arn", "")):
-        raise ValueError("Demo/Locust require an ACM certificate ARN")
+    if ingress["spec"]["ingressClassName"] != "platform-dashboards":
+        raise ValueError("Demo/Locust must use the shared platform-dashboards class")
+    if "alb.ingress.kubernetes.io/certificate-arn" in annotations:
+        raise ValueError("Shared certificates belong on IngressClassParams")
     expected = {settings["host"]: "frontend-proxy"}
     locust = settings["loadGenerator"]
     if locust["enabled"]:
@@ -216,8 +217,52 @@ def validate_demo_access(resources):
                          and item["metadata"]["name"] == "external-dns"), None)
     if external_dns:
         args = external_dns["spec"]["template"]["spec"]["containers"][0]["args"]
-        if not {"--ingress-class=alb", "--ingress-class=platform-dashboards"}.issubset(args):
-            raise ValueError("ExternalDNS must reconcile both demo and dashboard Ingress classes")
+        classes = [arg for arg in args if arg.startswith("--ingress-class=")]
+        if classes != ["--ingress-class=platform-dashboards"]:
+            raise ValueError("ExternalDNS must reconcile the single shared Ingress class")
+
+
+def validate_shared_alb(resources):
+    settings = documents(ROOT / "platform/dashboard-access/values.yaml")[0]
+    params = [item for item in resources if item.get("kind") == "IngressClassParams"
+              and item["apiVersion"] == "eks.amazonaws.com/v1"]
+    if len(params) != 1 or params[0]["metadata"]["name"] != "platform-dashboards":
+        raise ValueError("Exactly one Auto Mode ALB class must own the platform-dashboards group")
+    spec = params[0]["spec"]
+    if spec.get("group", {}).get("name") != "platform-dashboards":
+        raise ValueError("Retain the platform-dashboards group name to reuse its ALB")
+    if spec.get("listeners") != [{"port": 443, "protocol": "HTTPS"}]:
+        raise ValueError("The shared ALB must expose HTTPS only")
+    if spec.get("certificateARNs") != settings["certificateARNs"] or not settings["certificateARNs"]:
+        raise ValueError("The shared ALB must attach its configured dashboard and demo certificates")
+    selector = spec.get("namespaceSelector", {}).get("matchExpressions", [])
+    if selector != [{"key": "kubernetes.io/metadata.name", "operator": "In",
+                     "values": ["argocd", "monitoring", "dev"]}]:
+        raise ValueError("Only the approved platform/demo namespaces may join the shared ALB")
+    classes = [item for item in resources if item.get("kind") == "IngressClass"
+               and item["spec"].get("controller") == "eks.amazonaws.com/alb"]
+    if (len(classes) != 1 or classes[0]["metadata"]["name"] != "platform-dashboards"
+            or classes[0]["spec"]["parameters"]["name"] != "platform-dashboards"):
+        raise ValueError("All platform ingresses require one shared Auto Mode IngressClass")
+    cidrs = settings["allowedCIDRs"]
+    if not cidrs or any(ipaddress.ip_network(cidr).version != 4 or ipaddress.ip_network(cidr).prefixlen == 0
+                        for cidr in cidrs):
+        raise ValueError("Dashboard source-IP restrictions must be explicit IPv4 networks")
+    for name, namespace, service, host in [
+        ("argocd-dashboard", "argocd", "argocd-server", settings["argocdHostname"]),
+        ("grafana-dashboard", "monitoring", "monitoring-grafana", settings["grafanaHostname"]),
+    ]:
+        ingress = next(item for item in resources if item.get("kind") == "Ingress"
+                       and item["metadata"]["name"] == name and item["metadata"]["namespace"] == namespace)
+        annotations = ingress["metadata"]["annotations"]
+        condition = json.loads(annotations.get(f"alb.ingress.kubernetes.io/conditions.{service}", "[]"))
+        if condition != [{"field": "source-ip", "sourceIpConfig": {"values": cidrs}}]:
+            raise ValueError(f"{name} requires its own ALB source-IP condition")
+        if [rule.get("host") for rule in ingress["spec"]["rules"]] != [host]:
+            raise ValueError(f"{name} requires an explicit dashboard hostname")
+    for item in resources:
+        if item.get("kind") == "Ingress" and item["spec"].get("ingressClassName") != "platform-dashboards":
+            raise ValueError("Every platform/demo Ingress must use the shared ALB class")
 
 
 def validate(work, argocd_version, image_inventory=None):
@@ -321,6 +366,7 @@ def validate(work, argocd_version, image_inventory=None):
 
     validate_grafana_admin(resources)
     validate_demo_access(resources)
+    validate_shared_alb(resources)
     if image_inventory:
         image_inventory.parent.mkdir(parents=True, exist_ok=True)
         inventory = public_images(resources)

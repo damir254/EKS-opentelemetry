@@ -25,12 +25,12 @@ delivery, progressive rollouts and observability. The configuration targets
   Grafana provides dashboards and alerts. Monitoring data uses encrypted EBS
   volumes. Two Grafana replicas share a private Single-AZ RDS PostgreSQL database
   for settings, users and dashboards.
-- **Access and availability:** Grafana and Argo CD use a shared HTTPS ALB with
-  ACM certificates, a CIDR allowlist and Route 53 records managed by ExternalDNS.
+- **Access and availability:** One HTTPS ALB serves Grafana, Argo CD, the demo
+  and Locust, with ACM certificates and Route 53 records managed by ExternalDNS.
   The demo uses `https://demo.damircloud.com`; Locust uses
-  `https://loadgen.damircloud.com`, restricted to the operator CIDR. These two
-  hosts share a separate HTTPS ALB. Browser trace ingestion has request-size and
-  rate limits; the demo no longer exposes `/loadgen/`.
+  `https://loadgen.damircloud.com`. Dashboard and Locust listener rules restrict
+  access to the operator CIDR; the demo is public. Browser trace ingestion has
+  request-size and rate limits; the demo no longer exposes `/loadgen/`.
   Selected workloads use replicas and disruption budgets. Pod Identity and
   External Secrets supply AWS access and credentials outside Git.
 
@@ -48,7 +48,6 @@ images, configure kubeconfig and run `bash platform/auto-mode/bootstrap.sh`.
 Apply Terraform again with the default add-on setting. Then install Argo CD with
 the repository values and apply its root Application. GitOps initializes
 Grafana's database login and deploys the remaining platform.
-
 
 Grafana RDS defaults to `db.t3.micro`, 20 GiB of `gp2` storage with autoscaling
 disabled, and one day of automatic backups. Single-AZ database outages can affect

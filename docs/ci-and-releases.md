@@ -10,8 +10,9 @@ schemas, duplicate YAML keys and floating images in project-owned workloads fail
 validation. Chart-managed images follow their pinned chart versions.
 Grafana validation requires AWS-backed admin credentials for both the server and
 reload sidecars; recovery tests check password handling and sync prerequisites.
-Demo access guards require HTTPS, separate demo/Locust host rules, restricted
-Locust source IPs, ALB ingress on its UI port and both ExternalDNS class filters.
+Access guards require one HTTPS ALB class, its certificate list, separate host
+rules and dashboard/Locust source-IP conditions. ExternalDNS watches only that
+class. The migration gate checks AWS's actual rules before public access is opened.
 Runtime tests also verify the demo's old Locust routes return 404.
 
 Service delivery uses **one build**:
@@ -74,16 +75,3 @@ from [this template](../helm/otel-demo/files/frontend-proxy/envoy.yaml.tpl) into
 ConfigMap mounted at `/etc/envoy`. Configuration changes update the pod checksum
 and trigger a rollout; the container still runs as UID/GID 101.
 
-Local checks (install the pinned tools from the workflow first):
-
-```bash
-python3 -m pip install -r .github/scripts/requirements.txt
-bash .github/scripts/validate-kubernetes.sh
-python3 -m unittest discover -s .github/scripts/tests -v
-python3 -m unittest discover -s platform/monitoring/database/tests -v
-python3 .github/scripts/test-browser-telemetry.py # Linux and Docker required
-actionlint .github/workflows/*.yaml
-terraform fmt -check -recursive terraform
-terraform -chdir=terraform validate
-terraform -chdir=terraform/bootstrap validate
-```

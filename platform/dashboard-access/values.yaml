@@ -1,6 +1,9 @@
-# Issued ACM certificate for both dashboard names; retain it across recreation.
+# One HTTPS ALB for dashboards, demo and Locust. Retain this group name.
 enabled: true
-certificateARN: arn:aws:acm:eu-central-1:060941289716:certificate/fb5656ea-0783-4787-9d5d-2a3daf54a53b
+certificateARNs:
+  - arn:aws:acm:eu-central-1:060941289716:certificate/fb5656ea-0783-4787-9d5d-2a3daf54a53b
+  - arn:aws:acm:eu-central-1:060941289716:certificate/d1eb9fc5-765e-4f9c-9417-458866bd4763
+# Applied to dashboard listener rules, not the shared ALB security group.
 allowedCIDRs:
   - 109.175.0.0/16
 grafanaHostname: grafana.damircloud.com

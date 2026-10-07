@@ -47,6 +47,6 @@ resource "aws_acm_certificate_validation" "demo" {
 }
 
 output "demo_certificate_arn" {
-  description = "Issued public certificate for the demo and Locust; set this ARN in dev.yaml."
+  description = "Issued public certificate for the demo and Locust; include it in platform/dashboard-access certificateARNs."
   value       = aws_acm_certificate_validation.demo.certificate_arn
 }

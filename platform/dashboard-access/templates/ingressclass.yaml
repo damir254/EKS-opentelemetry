@@ -15,15 +15,16 @@ spec:
   group:
     name: platform-dashboards
   certificateARNs:
-    - {{ .Values.certificateARN | quote }}
+    {{- toYaml .Values.certificateARNs | nindent 4 }}
   sslPolicy: ELBSecurityPolicy-TLS13-1-2-Res-PQ-2025-09
   namespaceSelector:
     matchExpressions:
       - key: kubernetes.io/metadata.name
         operator: In
-        values: [argocd, monitoring]
+        values: [argocd, monitoring, dev]
   inboundCIDRs:
-    {{- toYaml .Values.allowedCIDRs | nindent 4 }}
+    # The demo is public; dashboard/Locust rules enforce their own CIDRs.
+    - 0.0.0.0/0
   listeners:
     - port: 443
       protocol: HTTPS

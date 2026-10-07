@@ -8,7 +8,8 @@ paymentAnalysis:
 ingress:
   enabled: true
   name: otel-demo
-  className: alb
+  # Reuses the dashboard ALB's explicit group; certificates live on that class.
+  className: platform-dashboards
   host: demo.damircloud.com
   loadGenerator:
     enabled: true
@@ -19,7 +20,6 @@ ingress:
   annotations:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:eu-central-1:060941289716:certificate/d1eb9fc5-765e-4f9c-9417-458866bd4763
     external-dns.kubernetes.io/alias: "true"
     alb.ingress.kubernetes.io/healthcheck-path: /
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port

@@ -3,8 +3,11 @@
 {{- if ne (get $annotations "alb.ingress.kubernetes.io/listen-ports" | fromJsonArray | toJson) "[{\"HTTPS\":443}]" }}
 {{- fail "Demo ingress requires only an HTTPS listener on port 443" }}
 {{- end }}
-{{- if not (regexMatch "^arn:aws(-[a-z-]+)?:acm:[a-z0-9-]+:[0-9]{12}:certificate/[a-f0-9-]+$" (get $annotations "alb.ingress.kubernetes.io/certificate-arn")) }}
-{{- fail "Demo ingress requires an issued ACM certificate ARN" }}
+{{- if ne .Values.ingress.className "platform-dashboards" }}
+{{- fail "Demo ingress must use the shared platform-dashboards class" }}
+{{- end }}
+{{- if hasKey $annotations "alb.ingress.kubernetes.io/certificate-arn" }}
+{{- fail "Configure shared certificates in platform/dashboard-access/values.yaml" }}
 {{- end }}
 {{- $loadgen := .Values.ingress.loadGenerator }}
 {{- if $loadgen.enabled }}
