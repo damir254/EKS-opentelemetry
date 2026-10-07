@@ -3,8 +3,7 @@
 The `development` NodePool allows only `m7i-flex.large` (2 CPUs, 8 GiB RAM),
 on-demand and amd64. It is capped at six instances (12 CPUs / 48 GiB).
 Eligibility was verified against EC2 on 2026-10-07; eligible does not mean all
-EKS/EC2 costs are free. `WhenEmpty` consolidation avoids cost-driven eviction of
-running workloads. Node expiration, maintenance and failure replacement remain.
+EKS/EC2 costs are free. `WhenEmptyOrUnderutilized` consolidation avoids cost-driven eviction of running workloads. Node expiration, maintenance and failure replacement remain.
 
 Terraform creates the custom node role, its EC2 access entry and the security
 group discovery tag. Kubernetes manifests select private subnets/security groups
