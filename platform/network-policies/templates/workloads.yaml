@@ -1,0 +1,54 @@
+{{- $graph := include "platform-network.connections" . | fromYaml }}
+{{- range $name, $workload := .Values.workloads }}
+{{- $managed := or (not (hasKey $workload "managed")) $workload.managed }}
+{{- $dnsRules := get $graph.services $name | default list }}
+{{- range $workload.externalProfiles }}
+{{- if not (hasKey $.Values.externalProfiles .) }}{{- fail (printf "Unknown external profile: %s" .) }}{{- end }}
+{{- $profile := index $.Values.externalProfiles . }}
+{{- $domains := list }}
+{{- range $profile.domains }}{{- $domains = append $domains (tpl . $) }}{{- end }}
+{{- $ports := list }}
+{{- range $profile.ports }}{{- $ports = append $ports (dict "port" (int .) "protocol" "TCP") }}{{- end }}
+{{- $dnsRules = append $dnsRules (dict "to" (list (dict "domainNames" $domains)) "ports" $ports) }}
+{{- end }}
+{{- if or $managed $dnsRules }}
+{{- $incoming := list }}
+{{- $outgoing := $dnsRules }}
+{{- if $managed }}
+{{- $incoming = concat (get $graph.ingress $name | default list) (include "platform-network.cidrs" (dict "groups" ($workload.ingressCIDRs | default dict) "ranges" $.Values.cidrGroups "direction" "from") | fromYamlArray) }}
+{{- $groups := deepCopy ($workload.egressCIDRs | default dict) }}
+{{- if $workload.api }}{{- $_ := set $groups "api" (list 443) }}{{- end }}
+{{- if $workload.podIdentity }}{{- $_ := set $groups "podIdentity" (list 80) }}{{- end }}
+{{- $dnsPeers := list }}
+{{- range $.Values.cidrGroups.dns }}{{- $dnsPeers = append $dnsPeers (dict "ipBlock" (dict "cidr" .)) }}{{- end }}
+{{- $dns := dict "to" $dnsPeers "ports" (list (dict "port" 53 "protocol" "UDP") (dict "port" 53 "protocol" "TCP")) }}
+{{- $outgoing = concat (get $graph.egress $name | default list) (list $dns) (include "platform-network.cidrs" (dict "groups" $groups "ranges" $.Values.cidrGroups "direction" "to") | fromYamlArray) $dnsRules }}
+{{- end }}
+---
+{{- if $dnsRules }}
+apiVersion: networking.k8s.aws/v1alpha1
+kind: ApplicationNetworkPolicy
+{{- else }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+{{- end }}
+metadata:
+  name: platform-{{ $name }}
+  namespace: {{ $workload.namespace }}
+  labels: {app.kubernetes.io/part-of: platform-network-policies}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml $workload.selector | nindent 6 }}
+  {{- if $managed }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    {{- toYaml ($incoming | default list) | nindent 4 }}
+  {{- else }}
+  # The demo chart owns pod rules and DNS; only add its platform Service routes.
+  policyTypes: [Egress]
+  {{- end }}
+  egress:
+    {{- toYaml $outgoing | nindent 4 }}
+{{- end }}
+{{- end }}

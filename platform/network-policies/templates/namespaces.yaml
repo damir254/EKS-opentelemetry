@@ -1,0 +1,15 @@
+{{- range $name, $settings := .Values.namespaces }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $name }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+    # Preserve workloads and storage when the policy Application is removed.
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+  {{- with $settings.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

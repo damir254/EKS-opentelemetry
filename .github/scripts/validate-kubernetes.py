@@ -3,6 +3,7 @@
 import argparse
 from copy import deepcopy
 import hashlib
+import importlib.util
 import ipaddress
 import json
 import os
@@ -86,6 +87,13 @@ def validate_images(resources):
             immutable_ecr = ".dkr.ecr." in image and re.search(r":(?:release-)?[0-9a-f]{40}$", image)
             if not pinned and not immutable_ecr:
                 raise ValueError(f'{resource["metadata"]["name"]}/{container["name"]}: floating image {image}')
+
+
+def validate_platform_network(resources):
+    spec = importlib.util.spec_from_file_location("network_model", ROOT / ".github/scripts/network-policy-model.py")
+    model = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(model)
+    model.validate(resources, documents(ROOT / "platform/network-policies/values.yaml")[0])
 
 
 def validate_demo_storage(resources):
@@ -362,9 +370,13 @@ def validate_keycloak(resources):
     for name in ["KC_DB_PASSWORD", "KC_BOOTSTRAP_ADMIN_CLIENT_SECRET"]:
         if "secretKeyRef" not in fields[name].get("valueFrom", {}):
             raise ValueError("Keycloak credentials must be provided by external Secrets")
-    policy = next(item for item in resources if item.get("kind") == "NetworkPolicy"
-                  and item["metadata"]["name"] == "keycloak")
-    if {"ports": [{"protocol": "UDP", "port": 53}, {"protocol": "TCP", "port": 53}]} not in policy["spec"]["egress"]:
+    policy = next((item for item in resources if item.get("kind") in ("NetworkPolicy", "ApplicationNetworkPolicy")
+                   and item["metadata"]["name"] == "platform-keycloak"), None)
+    dns_ranges = documents(ROOT / "platform/network-policies/values.yaml")[0]["cidrGroups"]["dns"]
+    if policy is None or not any(
+            {("UDP", 53), ("TCP", 53)} <= {(p.get("protocol", "TCP"), p.get("port")) for p in rule.get("ports", [])}
+            and set(dns_ranges) <= {peer.get("ipBlock", {}).get("cidr") for peer in rule.get("to", [])}
+            for rule in policy["spec"]["egress"]):
         raise ValueError("Keycloak must permit Auto Mode's node DNS resolvers on TCP/UDP 53")
 
 
@@ -441,6 +453,9 @@ def validate(work, argocd_version, image_inventory=None):
             run(["helm", "template", helm.get("releaseName", name), chart, "--namespace", namespace,
                  "--kube-version", version + ".0", "--include-crds", *flags], stdout=output)
         manifests = documents(destination)
+        for resource in manifests:
+            if resource.get("kind") in ("Deployment", "StatefulSet", "DaemonSet", "Job", "Prometheus", "Alertmanager", "NetworkPolicy", "ApplicationNetworkPolicy"):
+                resource["metadata"].setdefault("namespace", namespace)
         if not source.get("chart"):
             validate_images(manifests)
         resources.extend(manifests)
@@ -468,6 +483,7 @@ def validate(work, argocd_version, image_inventory=None):
                         resources.extend(documents(manifest))
 
     validate_demo_storage(resources)
+    validate_platform_network(resources)
     validate_grafana_admin(resources)
     validate_demo_access(resources)
     validate_shared_alb(resources)

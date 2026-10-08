@@ -40,6 +40,8 @@ delivery, progressive rollouts and observability. The configuration targets
   request-size and rate limits; the demo no longer exposes `/loadgen/`.
   Selected workloads use replicas and disruption budgets. Pod Identity and
   External Secrets supply AWS access and credentials outside Git.
+  [Platform network allowlists](docs/platform-network-isolation.md) restrict
+  monitoring, identity and controllers; the demo retains its own default-deny rules.
 
 | Directory | Contents |
 | --- | --- |

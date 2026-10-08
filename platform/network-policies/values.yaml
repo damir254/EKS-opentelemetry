@@ -1,0 +1,292 @@
+# Keep these ranges aligned with terraform/modules/vpc and modules/eks.
+region: eu-central-1
+# This chart owns platform namespaces; the demo owns its default-deny policies.
+namespaces:
+  argocd: {defaultDeny: true}
+  monitoring: {defaultDeny: true}
+  external-secrets: {defaultDeny: true}
+  external-dns: {defaultDeny: true}
+  argo-rollouts: {defaultDeny: true}
+  istio-system: {defaultDeny: true}
+  identity:
+    defaultDeny: true
+    labels: {pod-security.kubernetes.io/enforce: restricted}
+  dev: {defaultDeny: false} # Create before the cross-namespace Service allowances.
+cidrGroups:
+  alb: [10.0.0.0/24, 10.0.1.0/24]
+  private: [10.0.10.0/24, 10.0.11.0/24]
+  api: [172.20.0.1/32, 10.0.10.0/24, 10.0.11.0/24]
+  podIdentity: [169.254.170.23/32]
+  dns: [172.20.0.10/32] # Auto Mode node-local DNS for the fixed Service CIDR.
+
+# EKS ApplicationNetworkPolicy tracks DNS answers instead of pinning changing IPs.
+externalProfiles:
+  identity:
+    domains: [auth.damircloud.com]
+    ports: [443]
+  gitHelm:
+    domains:
+      - github.com
+      - api.github.com
+      - codeload.github.com
+      - raw.githubusercontent.com
+      - objects.githubusercontent.com
+      - release-assets.githubusercontent.com
+      - argoproj.github.io
+      - prometheus-community.github.io
+      - grafana-community.github.io
+      - kubernetes-sigs.github.io
+      - charts.external-secrets.io
+      - blob.istio.io
+      - storage.googleapis.com
+    ports: [443]
+  gitSSH:
+    domains: [github.com]
+    ports: [22]
+  ecr:
+    domains:
+      - 'ecr.{{ .Values.region }}.amazonaws.com'
+      - 'api.ecr.{{ .Values.region }}.amazonaws.com'
+      - '*.dkr.ecr.{{ .Values.region }}.amazonaws.com'
+      - 'sts.{{ .Values.region }}.amazonaws.com'
+    ports: [443]
+  secrets:
+    domains: ['secretsmanager.{{ .Values.region }}.amazonaws.com', 'sts.{{ .Values.region }}.amazonaws.com']
+    ports: [443]
+  databaseBootstrap:
+    domains: ['rds.{{ .Values.region }}.amazonaws.com', 'secretsmanager.{{ .Values.region }}.amazonaws.com']
+    ports: [443]
+  dns:
+    domains: [route53.amazonaws.com, 'sts.{{ .Values.region }}.amazonaws.com']
+    ports: [443]
+
+# Service maps use pod ports as keys and the actual Service ports as values.
+# Demo peers keep their existing pod policies (managed: false).
+workloads:
+  grafana:
+    services:
+      monitoring-grafana: {"3000": [80]}
+      monitoring-grafana-headless: {"9094": [9094]}
+    namespace: monitoring
+    selector: {app.kubernetes.io/name: grafana, app.kubernetes.io/instance: monitoring}
+    api: true # Dashboard and datasource sidecars watch ConfigMaps/Secrets.
+    ingressCIDRs: {alb: [3000]}
+    egressCIDRs: {private: [5432]}
+    externalProfiles: [identity]
+  prometheus:
+    services:
+      monitoring-kube-prometheus-prometheus: {"9090": [9090], "8080": [8080]}
+      prometheus-operated: {"9090": [9090]}
+    namespace: monitoring
+    selector: {app.kubernetes.io/name: prometheus, operator.prometheus.io/name: monitoring-kube-prometheus-prometheus}
+    api: true
+    egressCIDRs: {private: [10250, 9100, 10257, 10259, 2381]}
+  alertmanager:
+    services:
+      monitoring-kube-prometheus-alertmanager: {"9093": [9093], "8080": [8080]}
+      alertmanager-operated: {"9093": [9093], "9094": [9094]}
+    namespace: monitoring
+    selector: {app.kubernetes.io/name: alertmanager, alertmanager: monitoring-kube-prometheus-alertmanager}
+  loki:
+    services:
+      loki: {"3100": [3100]}
+      loki-headless: {"3100": [3100]}
+    namespace: monitoring
+    selector: {app.kubernetes.io/name: loki, app.kubernetes.io/instance: loki, app.kubernetes.io/component: single-binary}
+  prometheus-operator:
+    services:
+      monitoring-kube-prometheus-operator: {"10250": [443]}
+    namespace: monitoring
+    selector: {app: kube-prometheus-stack-operator, release: monitoring}
+    api: true
+    ingressCIDRs: {private: [10250]} # Admission calls from EKS control-plane ENIs.
+  monitoring-admission:
+    namespace: monitoring
+    selector: {app.kubernetes.io/component: prometheus-operator-webhook, app.kubernetes.io/instance: monitoring}
+    api: true
+  kube-state-metrics:
+    services:
+      monitoring-kube-state-metrics: {"8080": [8080]}
+    namespace: monitoring
+    selector: {app.kubernetes.io/name: kube-state-metrics, app.kubernetes.io/instance: monitoring}
+    api: true
+  grafana-db-bootstrap:
+    namespace: monitoring
+    selector: {app.kubernetes.io/name: grafana-db-bootstrap}
+    podIdentity: true
+    egressCIDRs: {private: [5432]}
+    externalProfiles: [databaseBootstrap]
+
+  argocd-server:
+    services:
+      argocd-server: {"8080": [80, 443]}
+    namespace: argocd
+    selector: {app.kubernetes.io/name: argocd-server, app.kubernetes.io/instance: argocd}
+    api: true
+    ingressCIDRs: {alb: [8080]}
+    externalProfiles: [identity]
+  argocd-controller:
+    namespace: argocd
+    selector: {app.kubernetes.io/name: argocd-application-controller, app.kubernetes.io/instance: argocd}
+    api: true
+  argocd-repo:
+    services:
+      argocd-repo-server: {"8081": [8081]}
+    namespace: argocd
+    selector: {app.kubernetes.io/name: argocd-repo-server, app.kubernetes.io/instance: argocd}
+    externalProfiles: [gitHelm]
+  argocd-applicationset:
+    namespace: argocd
+    selector: {app.kubernetes.io/name: argocd-applicationset-controller, app.kubernetes.io/instance: argocd}
+    api: true
+    externalProfiles: [gitHelm]
+  argocd-notifications:
+    namespace: argocd
+    selector: {app.kubernetes.io/name: argocd-notifications-controller, app.kubernetes.io/instance: argocd}
+    api: true
+  argocd-redis-init:
+    namespace: argocd
+    selector: {app.kubernetes.io/name: argocd-redis-secret-init, app.kubernetes.io/instance: argocd}
+    api: true
+  argocd-redis:
+    services:
+      argocd-redis-ha: {"6379": [6379], "26379": [26379]}
+      argocd-redis-ha-announce-0: {"6379": [6379], "26379": [26379]}
+      argocd-redis-ha-announce-1: {"6379": [6379], "26379": [26379]}
+      argocd-redis-ha-announce-2: {"6379": [6379], "26379": [26379]}
+    namespace: argocd
+    selector: {app: redis-ha, release: argocd}
+  argocd-haproxy:
+    services:
+      argocd-redis-ha-haproxy: {"6379": [6379], "9101": [9101]}
+    namespace: argocd
+    selector: {app: redis-ha-haproxy, release: argocd}
+  image-updater:
+    namespace: argocd
+    selector: {app.kubernetes.io/name: argocd-image-updater, app.kubernetes.io/instance: argocd-image-updater}
+    api: true
+    podIdentity: true
+    externalProfiles: [gitHelm, gitSSH, ecr]
+
+  external-secrets:
+    namespace: external-secrets
+    selector: {app.kubernetes.io/name: external-secrets, app.kubernetes.io/instance: external-secrets}
+    api: true
+    podIdentity: true
+    externalProfiles: [secrets]
+  external-secrets-cert:
+    namespace: external-secrets
+    selector: {app.kubernetes.io/name: external-secrets-cert-controller, app.kubernetes.io/instance: external-secrets}
+    api: true
+  external-secrets-webhook:
+    namespace: external-secrets
+    selector: {app.kubernetes.io/name: external-secrets-webhook, app.kubernetes.io/instance: external-secrets}
+    api: true
+    ingressCIDRs: {private: [10250]}
+  external-dns:
+    services:
+      external-dns: {"7979": [7979]}
+    namespace: external-dns
+    selector: {app.kubernetes.io/name: external-dns, app.kubernetes.io/instance: external-dns}
+    api: true
+    podIdentity: true
+    externalProfiles: [dns]
+  rollouts:
+    namespace: argo-rollouts
+    selector: {app.kubernetes.io/name: argo-rollouts, app.kubernetes.io/instance: argo-rollouts}
+    api: true
+  istiod:
+    services:
+      istiod: {"15012": [15012], "15014": [15014]}
+    namespace: istio-system
+    selector: {app: istiod, istio: pilot}
+    api: true
+    ingressCIDRs: {private: [15017]}
+  metrics-server:
+    namespace: kube-system # Only this add-on, not a namespace-wide system deny.
+    selector: {app.kubernetes.io/name: metrics-server, app.kubernetes.io/instance: metrics-server}
+    api: true
+    ingressCIDRs: {private: [10251]}
+    egressCIDRs: {private: [10250]}
+  keycloak-db-bootstrap:
+    namespace: identity
+    selector: {app.kubernetes.io/name: keycloak-db-bootstrap}
+    podIdentity: true
+    egressCIDRs: {private: [5432]}
+    externalProfiles: [databaseBootstrap]
+  keycloak-realm:
+    namespace: identity
+    selector: {app.kubernetes.io/name: keycloak-realm-configuration}
+
+  # Keycloak runtime and its bootstrap Jobs share the platform policy owner.
+  keycloak:
+    services:
+      keycloak: {"8080": [8080], "9000": [9000]}
+      keycloak-admin: {"8080": [8080]}
+    namespace: identity
+    selector: {app.kubernetes.io/name: keycloak}
+    ingressCIDRs: {alb: [8080]}
+    egressCIDRs: {private: [5432]}
+  # Demo policies own these workloads; this chart adds Service DNS allowances only.
+  collector:
+    services:
+      otel-collector: {"8889": [8889]}
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: otel-collector}
+    managed: false
+  checkout:
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: checkout}
+    managed: false
+  payment:
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: payment}
+    managed: false
+
+# Each edge generates pod allowlists and exact Service DNS/port allowances.
+# Auto Mode evaluates Service traffic before DNAT; pod IP rules alone are insufficient.
+connections:
+  - {from: grafana, to: prometheus, ports: [9090]}
+  - {from: grafana, to: loki, ports: [3100]}
+  - {from: grafana, to: alertmanager, ports: [9093]}
+  - {from: grafana, to: grafana, ports: [9094]}
+  - {from: grafana, to: grafana, ports: [9094], protocol: UDP}
+  - {from: prometheus, to: alertmanager, ports: [9093, 8080]}
+  - {from: prometheus, to: prometheus, ports: [9090, 8080]}
+  - {from: prometheus, to: grafana, ports: [3000]}
+  - {from: prometheus, to: loki, ports: [3100]}
+  - {from: prometheus, to: prometheus-operator, ports: [10250]}
+  - {from: prometheus, to: kube-state-metrics, ports: [8080, 8081]}
+  - {from: prometheus, to: collector, ports: [8889]}
+  - {from: prometheus, to: keycloak, ports: [9000]}
+  - {from: prometheus, to: argocd-controller, ports: [8082]}
+  - {from: prometheus, to: argocd-server, ports: [8083]}
+  - {from: prometheus, to: argocd-repo, ports: [8084]}
+  - {from: prometheus, to: argocd-applicationset, ports: [8080]}
+  - {from: prometheus, to: argocd-notifications, ports: [9001]}
+  - {from: prometheus, to: argocd-haproxy, ports: [9101]}
+  - {from: prometheus, to: image-updater, ports: [8443]}
+  - {from: prometheus, to: external-secrets, ports: [8080]}
+  - {from: prometheus, to: external-secrets-cert, ports: [8080]}
+  - {from: prometheus, to: external-secrets-webhook, ports: [8080]}
+  - {from: prometheus, to: external-dns, ports: [7979]}
+  - {from: prometheus, to: rollouts, ports: [8090]}
+  - {from: prometheus, to: istiod, ports: [15014]}
+  - {from: alertmanager, to: alertmanager, ports: [9094]}
+  - {from: alertmanager, to: alertmanager, ports: [9094], protocol: UDP}
+  - {from: collector, to: loki, ports: [3100]}
+  - {from: argocd-server, to: argocd-repo, ports: [8081]}
+  - {from: argocd-server, to: argocd-haproxy, ports: [6379]}
+  - {from: argocd-controller, to: argocd-repo, ports: [8081]}
+  - {from: argocd-controller, to: argocd-haproxy, ports: [6379]}
+  - {from: argocd-applicationset, to: argocd-repo, ports: [8081]}
+  - {from: argocd-notifications, to: argocd-repo, ports: [8081]}
+  - {from: argocd-repo, to: argocd-haproxy, ports: [6379]}
+  - {from: argocd-haproxy, to: argocd-redis, ports: [6379, 26379]}
+  - {from: argocd-redis, to: argocd-redis, ports: [6379, 26379]}
+  - {from: image-updater, to: argocd-server, ports: [8080]}
+  - {from: rollouts, to: prometheus, ports: [9090]}
+  - {from: checkout, to: istiod, ports: [15012]}
+  - {from: payment, to: istiod, ports: [15012]}
+  - {from: keycloak-realm, to: keycloak, ports: [8080]}
+  - {from: keycloak, to: keycloak, ports: [7800, 57800]}

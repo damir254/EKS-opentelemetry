@@ -18,6 +18,11 @@ Demo storage tests replace pinned PostgreSQL, Kafka and Valkey containers on the
 same volumes and verify rows, messages, consumer offsets and AOF carts survive.
 Manifest guards require gp3 cleanup, migration-safe Service selectors and
 consolidation without `do-not-disrupt`.
+Platform network guards verify workload/hook coverage, internal pod and Service
+routes, bounded ingress and DNS-based outbound allowlists. They require one
+platform policy per workload, one Keycloak policy owner and no migration workloads.
+An optional [isolated live smoke test](platform-network-isolation.md) verifies EKS enforcement;
+CI itself never connects to the cluster.
 Keycloak tests exercise optimized production startup, isolated PostgreSQL
 permissions, realm/client provisioning, bootstrap access removal and password/access
 continuity after reconciliation and restart. Guards reject public admin/management

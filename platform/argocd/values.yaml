@@ -1,5 +1,10 @@
 # Reserve observed usage plus headroom so Auto Mode can account for these pods.
 # Limits allow bursts while bounding each container's CPU and memory use.
+global:
+  networkPolicy:
+    # The network-policies Application owns ingress and egress allowlists.
+    # Fresh installs use one policy owner; chart defaults allow all server ingress.
+    create: false
 configs:
   cm:
     url: https://argocd.damircloud.com

@@ -1,9 +1,9 @@
-# Auto Mode schemas
+# EKS API schemas
 
-The NodePool and NodeClass schemas are derived from the installed EKS Auto Mode
-v1 CRDs on Kubernetes 1.36 (2026-10-07). They contain API definitions only.
-`validate-kubernetes.py` converts nullable OpenAPI fields and validates manifests
-strictly alongside the existing IngressClassParams schema and chart CRDs.
+NodePool, NodeClass and ApplicationNetworkPolicy schemas are derived from installed
+EKS Auto Mode CRDs on Kubernetes 1.36 (2026-10-07/08). They contain API definitions
+only. `validate-kubernetes.py` converts nullable OpenAPI fields and validates
+manifests strictly alongside IngressClassParams and chart CRDs.
 
-Refresh these schemas from the matching EKS APIs when introducing new Auto Mode
-fields or upgrading the API version; do not bypass missing-schema validation.
+Refresh schemas from matching EKS APIs when introducing new fields or upgrading
+API versions; do not bypass missing-schema validation.

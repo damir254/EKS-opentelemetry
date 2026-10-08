@@ -1,0 +1,14 @@
+{{- range $name, $settings := .Values.namespaces }}
+{{- if $settings.defaultDeny }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: platform-default-deny
+  namespace: {{ $name }}
+  labels: {app.kubernetes.io/part-of: platform-network-policies}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+{{- end }}
+{{- end }}

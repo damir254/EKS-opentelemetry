@@ -8,6 +8,11 @@ grafana:
       cookie_secure: true
     auth.anonymous:
       enabled: false
+    analytics:
+      # Platform egress allows SSO and internal backends; no update/reporting calls.
+      reporting_enabled: false
+      check_for_updates: false
+      check_for_plugin_updates: false
   # Database and availability settings come from grafana-ha-values.yaml.
   persistence:
     enabled: false

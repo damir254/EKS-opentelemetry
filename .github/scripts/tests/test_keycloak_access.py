@@ -16,7 +16,8 @@ class KeycloakAccessTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.resources = []
-        for chart, namespace in [("platform/keycloak", "identity"), ("platform/dashboard-access", "monitoring")]:
+        for chart, namespace in [("platform/keycloak", "identity"), ("platform/dashboard-access", "monitoring"),
+                                 ("platform/network-policies", "argocd")]:
             rendered = subprocess.check_output(["helm", "template", "test", str(ROOT / chart), "--namespace", namespace], text=True)
             cls.resources.extend(item for item in yaml.safe_load_all(rendered) if item)
 
@@ -58,7 +59,8 @@ class KeycloakAccessTests(unittest.TestCase):
 
     def test_coredns_only_policy_does_not_pass_on_auto_mode(self):
         resources = deepcopy(self.resources)
-        policy = next(item for item in resources if item.get("kind") == "NetworkPolicy" and item["metadata"]["name"] == "keycloak")
-        policy["spec"]["egress"][0]["to"] = [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}]
+        policy = next(item for item in resources if item.get("kind") == "NetworkPolicy" and item["metadata"]["name"] == "platform-keycloak")
+        dns = next(rule for rule in policy["spec"]["egress"] if any(port["port"] == 53 for port in rule["ports"]))
+        dns["to"] = [{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-system"}}}]
         with self.assertRaises(ValueError):
             validator.validate_keycloak(resources)

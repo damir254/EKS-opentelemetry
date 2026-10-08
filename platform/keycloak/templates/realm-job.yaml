@@ -11,6 +11,7 @@ spec:
   activeDeadlineSeconds: 600
   template:
     metadata:
+      labels: {app.kubernetes.io/name: keycloak-realm-configuration}
       annotations:
         sidecar.istio.io/inject: "false"
     spec:
