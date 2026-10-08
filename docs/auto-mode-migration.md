@@ -3,7 +3,9 @@
 The `development` NodePool allows only `m7i-flex.large` (2 CPUs, 8 GiB RAM),
 on-demand and amd64. It is capped at six instances (12 CPUs / 48 GiB).
 Eligibility was verified against EC2 on 2026-10-07; eligible does not mean all
-EKS/EC2 costs are free. `WhenEmptyOrUnderutilized` consolidation avoids cost-driven eviction of running workloads. Node expiration, maintenance and failure replacement remain.
+EKS/EC2 costs are free. `WhenEmptyOrUnderutilized` consolidation can evict and
+repack running workloads when their resource requests fit on fewer nodes.
+Node expiration, maintenance and failure replacement also remain.
 
 Terraform creates the custom node role, its EC2 access entry and the security
 group discovery tag. Kubernetes manifests select private subnets/security groups
@@ -34,8 +36,9 @@ repository's `otel-demo-eks` cluster name; update role/tag selectors if renaming
 3. Cordon old nodes to stop new placements. Drain one old node at a time,
    respecting PDBs and waiting for replacement readiness. The custom pool's
    higher weight directs new capacity to eligible instances during migration.
-   Keep existing monitoring PVCs and allow EBS reattachment in their original AZ.
-   Demo PostgreSQL/Kafka/Valkey may restart with empty data; this was accepted.
+   Keep monitoring and demo dependency PVCs and allow EBS reattachment in their
+   original AZ. Single-instance demo dependencies briefly stop during reattachment;
+   the initial migration from ephemeral Deployments starts with fresh data.
 4. Apply Terraform without the override only after workloads have migrated.
    Removing built-in pool names drains/terminates their remaining nodes.
 5. Verify readiness, dashboard HTTPS access, unchanged monitoring volume IDs and

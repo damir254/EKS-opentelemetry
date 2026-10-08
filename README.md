@@ -21,6 +21,8 @@ delivery, progressive rollouts and observability. The configuration targets
 - **Application:** The demo combines gRPC services, Kafka order events,
   PostgreSQL product/order data, Valkey carts and feature flags. Payment uses
   Argo Rollouts and Istio for canary releases checked by Prometheus.
+  PostgreSQL, Kafka and Valkey run as single-replica StatefulSets with gp3 EBS
+  storage that survives pod replacement and is deleted with the StatefulSets.
 - **Observability:** OpenTelemetry feeds Prometheus metrics and Loki logs;
   Grafana provides dashboards and alerts. Monitoring data uses encrypted EBS
   volumes. Two Grafana replicas share a private Single-AZ RDS PostgreSQL database
@@ -59,6 +61,7 @@ disabled, and one day of automatic backups. Single-AZ database outages can affec
 Grafana and Keycloak. Use bounded connection pools and monitor database capacity;
 Multi-AZ remains an optional Paid plan availability upgrade.
 
-This is a development/portfolio environment. Demo PostgreSQL, Kafka and Valkey
-data are ephemeral. Traces currently produce metrics/debug output without a searchable
-trace backend.
+This is a development/portfolio environment. Node consolidation can briefly interrupt
+the single-instance demo dependencies; their data is disposable at environment teardown.
+See [dependency storage](docs/dependency-storage.md) for migration and cleanup.
+Traces currently produce metrics/debug output without a searchable trace backend.

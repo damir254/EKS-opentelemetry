@@ -1,17 +1,22 @@
 {{- if .Values.valkey.enabled }}
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: {{ .Values.valkey.service.name }}
   labels:
     {{- include "otel-demo.labels" . | nindent 4 }}
     app.kubernetes.io/component: valkey
 spec:
+  serviceName: {{ .Values.valkey.service.name }}-headless
   replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
   selector:
     matchLabels:
       {{- include "otel-demo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: valkey
+      app.kubernetes.io/workload-kind: StatefulSet
   template:
     metadata:
       {{- with .Values.valkey.podAnnotations }}
@@ -21,17 +26,35 @@ spec:
       labels:
         {{- include "otel-demo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: valkey
+        app.kubernetes.io/workload-kind: StatefulSet
     spec:
+      terminationGracePeriodSeconds: 60
       containers:
         - name: valkey
           image: "{{ .Values.valkey.image.repository }}:{{ .Values.valkey.image.tag }}"
           imagePullPolicy: {{ .Values.valkey.image.pullPolicy }}
+          args: ["valkey-server", "--dir", "/data", "--appendonly", "yes", "--appendfsync", "everysec"]
           ports:
             - name: tcp-valkey
               containerPort: 6379
           {{- include "otel-demo.probes" .Values.valkey | nindent 10 }}
           resources:
             {{- toYaml .Values.valkey.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "otel-demo.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: valkey
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.valkey.persistence.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.valkey.persistence.size }}
 ---
 apiVersion: v1
 kind: Service
@@ -45,6 +68,25 @@ spec:
   selector:
     {{- include "otel-demo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: valkey
+    app.kubernetes.io/workload-kind: StatefulSet
+  ports:
+    - name: tcp-valkey
+      port: 6379
+      targetPort: tcp-valkey
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.valkey.service.name }}-headless
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  clusterIP: None
+  selector:
+    {{- include "otel-demo.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+    app.kubernetes.io/workload-kind: StatefulSet
   ports:
     - name: tcp-valkey
       port: 6379

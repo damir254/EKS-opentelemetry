@@ -25,10 +25,10 @@
         }
       }
     },
-    "postgres": {"$ref": "#/definitions/dependency"},
+    "postgres": {"$ref": "#/definitions/statefulDependency"},
     "flagd": {"$ref": "#/definitions/dependency"},
-    "valkey": {"$ref": "#/definitions/dependency"},
-    "kafka": {"$ref": "#/definitions/dependency"},
+    "valkey": {"$ref": "#/definitions/statefulDependency"},
+    "kafka": {"$ref": "#/definitions/statefulDependency"},
     "otelCollector": {"$ref": "#/definitions/dependency"},
     "paymentAnalysis": {"type": "object", "additionalProperties": false, "properties": {"prometheusAddress": {"type": "string"}}},
     "ingress": {
@@ -81,6 +81,24 @@
         "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
       }
     },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "storageClassName": {"const": "gp3"},
+        "size": {"type": "string", "pattern": "^[1-9][0-9]*(Gi|Ti)$"}
+      },
+      "required": ["storageClassName", "size"]
+    },
+    "statefulDependency": {
+      "allOf": [
+        {"$ref": "#/definitions/dependency"},
+        {
+          "if": {"properties": {"enabled": {"const": true}}, "required": ["enabled"]},
+          "then": {"required": ["persistence"]}
+        }
+      ]
+    },
     "dependency": {
       "type": "object",
       "additionalProperties": false,
@@ -90,6 +108,7 @@
         "port": {"$ref": "#/definitions/port"},
         "service": {"type": "object"},
         "resources": {"$ref": "#/definitions/resources"},
+        "persistence": {"$ref": "#/definitions/persistence"},
         "podAnnotations": {"type": "object", "additionalProperties": {"type": "string"}},
         "startupProbe": {"$ref": "#/definitions/probe"},
         "readinessProbe": {"$ref": "#/definitions/probe"},

@@ -88,6 +88,53 @@ def validate_images(resources):
                 raise ValueError(f'{resource["metadata"]["name"]}/{container["name"]}: floating image {image}')
 
 
+def validate_demo_storage(resources):
+    """Keep disposable demo storage durable during node consolidation."""
+    objects = {(item.get("kind"), item["metadata"]["name"]): item for item in resources}
+    mounts = {"astronomy-db": "/var/lib/postgresql/data", "kafka": "/var/lib/kafka/data",
+              "valkey-cart": "/data"}
+    for name, mount_path in mounts.items():
+        if ("StatefulSet", name) not in objects and ("Deployment", name) not in objects:
+            continue
+        if ("Deployment", name) in objects:
+            raise ValueError(f"{name}: demo storage requires a StatefulSet")
+        spec = objects[("StatefulSet", name)]["spec"]
+        if spec.get("replicas") != 1:
+            raise ValueError(f"{name}: additional replicas require application-level replication")
+        if spec.get("persistentVolumeClaimRetentionPolicy") != {"whenDeleted": "Delete", "whenScaled": "Retain"}:
+            raise ValueError(f"{name}: delete PVCs with the StatefulSet, retain them during scale-down")
+        pod = spec["template"]
+        if pod["metadata"].get("annotations", {}).get("karpenter.sh/do-not-disrupt") == "true":
+            raise ValueError(f"{name}: do-not-disrupt blocks demo consolidation")
+        claims = {claim["metadata"]["name"]: claim["spec"] for claim in spec.get("volumeClaimTemplates", [])}
+        if set(claims) != {"data"} or claims["data"].get("storageClassName") != "gp3" or claims["data"].get("accessModes") != ["ReadWriteOnce"]:
+            raise ValueError(f"{name}: requires a gp3 ReadWriteOnce data claim")
+        storage = objects.get(("StorageClass", "gp3"), {}).get("reclaimPolicy")
+        if storage != "Delete":
+            raise ValueError("gp3 must delete the EBS volume after PVC deletion")
+        container = pod["spec"]["containers"][0]
+        if {"name": "data", "mountPath": mount_path} not in container.get("volumeMounts", []):
+            raise ValueError(f"{name}: application data must be mounted on the PVC")
+        labels = pod["metadata"]["labels"]
+        for service_name in [name, spec["serviceName"]]:
+            service = objects[("Service", service_name)]["spec"]
+            selector = service["selector"]
+            if selector.get("app.kubernetes.io/workload-kind") != "StatefulSet" or not all(labels.get(key) == value for key, value in selector.items()):
+                raise ValueError(f"{name}: Service must select only new StatefulSet pods during migration")
+        if objects[("Service", spec["serviceName"])]["spec"].get("clusterIP") != "None":
+            raise ValueError(f"{name}: governing Service must be headless")
+        env = {item["name"]: item.get("value") for item in container.get("env", [])}
+        if name == "astronomy-db" and env.get("PGDATA") != mount_path + "/pgdata":
+            raise ValueError("PostgreSQL PGDATA must use a PVC subdirectory")
+        if name == "kafka" and any(not (env.get(key) or "").startswith(mount_path + "/") for key in ["KAFKA_LOG_DIRS", "KAFKA_METADATA_LOG_DIR"]):
+            raise ValueError("Kafka messages and KRaft metadata must both use the PVC")
+        if name == "valkey-cart":
+            args = container.get("args", [])
+            for key, value in [("--dir", mount_path), ("--appendonly", "yes"), ("--appendfsync", "everysec")]:
+                if key not in args or args[args.index(key) + 1:args.index(key) + 2] != [value]:
+                    raise ValueError("Valkey must persist AOF data on the PVC")
+
+
 def validate_grafana_admin(resources):
     deployment = next((item for item in resources if item.get("kind") == "Deployment"
                        and item["metadata"]["name"] == "monitoring-grafana"), None)
@@ -420,6 +467,7 @@ def validate(work, argocd_version, image_inventory=None):
                     for manifest in sorted(directory.glob(include)):
                         resources.extend(documents(manifest))
 
+    validate_demo_storage(resources)
     validate_grafana_admin(resources)
     validate_demo_access(resources)
     validate_shared_alb(resources)

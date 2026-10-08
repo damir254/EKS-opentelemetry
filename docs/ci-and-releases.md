@@ -14,6 +14,10 @@ Access guards require one HTTPS ALB class, its certificate list, separate host
 rules and dashboard/Locust source-IP conditions. ExternalDNS watches only that
 class. Keycloak joins that class; administration retains its own source-IP condition.
 Runtime tests also verify the demo's old Locust routes return 404.
+Demo storage tests replace pinned PostgreSQL, Kafka and Valkey containers on the
+same volumes and verify rows, messages, consumer offsets and AOF carts survive.
+Manifest guards require gp3 cleanup, migration-safe Service selectors and
+consolidation without `do-not-disrupt`.
 Keycloak tests exercise optimized production startup, isolated PostgreSQL
 permissions, realm/client provisioning, bootstrap access removal and password/access
 continuity after reconciliation and restart. Guards reject public admin/management

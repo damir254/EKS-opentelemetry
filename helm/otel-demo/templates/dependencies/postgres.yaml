@@ -11,18 +11,23 @@ data:
     {{- .Files.Get "files/postgresql/init.sh" | nindent 4 }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: astronomy-db
   labels:
     {{- include "otel-demo.labels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
 spec:
+  serviceName: astronomy-db-headless
   replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
   selector:
     matchLabels:
       {{- include "otel-demo.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: postgres
+      app.kubernetes.io/workload-kind: StatefulSet
   template:
     metadata:
       {{- with .Values.postgres.podAnnotations }}
@@ -32,7 +37,9 @@ spec:
       labels:
         {{- include "otel-demo.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: postgres
+        app.kubernetes.io/workload-kind: StatefulSet
     spec:
+      terminationGracePeriodSeconds: 60
       containers:
         - name: postgres
           image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
@@ -46,6 +53,9 @@ spec:
           {{- include "otel-demo.probes" .Values.postgres | nindent 10 }}
 
           env:
+            # Keep initdb away from the filesystem's lost+found directory.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -68,6 +78,8 @@ spec:
             {{- toYaml .Values.postgres.resources | nindent 12 }}
 
           volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
             - name: init
               mountPath: /docker-entrypoint-initdb.d/init.sh
               subPath: init.sh
@@ -78,6 +90,18 @@ spec:
           configMap:
             name: astronomy-db-init
             defaultMode: 0755
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "otel-demo.selectorLabels" . | nindent 10 }}
+          app.kubernetes.io/component: postgres
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: {{ .Values.postgres.persistence.storageClassName }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.persistence.size }}
 ---
 apiVersion: v1
 kind: Service
@@ -91,6 +115,27 @@ spec:
   selector:
     {{- include "otel-demo.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: postgres
+    # Exclude the old Deployment pods during the first GitOps migration.
+    app.kubernetes.io/workload-kind: StatefulSet
+  ports:
+    - name: tcp-postgres
+      port: {{ .Values.postgres.port }}
+      targetPort: tcp-postgres
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: astronomy-db-headless
+  labels:
+    {{- include "otel-demo.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  clusterIP: None
+  selector:
+    {{- include "otel-demo.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+    app.kubernetes.io/workload-kind: StatefulSet
   ports:
     - name: tcp-postgres
       port: {{ .Values.postgres.port }}
