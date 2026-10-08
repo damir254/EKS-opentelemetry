@@ -90,13 +90,35 @@ def enforce_mfa(api, realm):
                         if executions[index].get("authenticationFlow")
                         and executions[index]["level"] == otp["level"] - 1)
     parent = executions[parent_index]
-    api.request("PUT", path, {"id": parent["id"], "requirement": "REQUIRED"})
-    api.request("PUT", path, {"id": otp["id"], "requirement": "REQUIRED"})
+    password_index = next(index for index, execution in enumerate(executions)
+                          if execution.get("providerId") == "auth-username-password-form")
+    password = executions[password_index]
+
+    def parent_of(index):
+        return next(executions[position] for position in range(index - 1, -1, -1)
+                    if executions[position].get("authenticationFlow")
+                    and executions[position]["level"] == executions[index]["level"] - 1)
+
+    if (parent["level"] != password["level"]
+            or parent_of(parent_index)["id"] != parent_of(password_index)["id"]):
+        raise ValueError("Password and MFA must belong to the same browser forms flow")
+
+    def update(execution, requirement, priority=None):
+        priority = execution["priority"] if priority is None else priority
+        if execution["requirement"] != requirement or execution["priority"] != priority:
+            # Keycloak's PUT also replaces priority: omitting it resets it to zero.
+            api.request("PUT", path, {"id": execution["id"], "requirement": requirement,
+                                     "priority": priority})
+
+    update(password, "REQUIRED")
+    # Repair previously provisioned flows as well as preserving new copies.
+    update(parent, "REQUIRED", max(parent["priority"], password["priority"] + 10))
+    update(otp, "REQUIRED")
     for execution in executions[parent_index + 1:]:
         if execution["level"] < otp["level"]:
             break
         if execution.get("providerId", "").startswith("conditional-"):
-            api.request("PUT", path, {"id": execution["id"], "requirement": "DISABLED"})
+            update(execution, "DISABLED")
     api.request("PUT", f"/admin/realms/{realm}", {"browserFlow": alias})
 
 

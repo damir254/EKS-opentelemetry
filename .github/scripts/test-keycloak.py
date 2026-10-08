@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Exercise real PostgreSQL/Keycloak startup, isolation and safe reconciliation."""
 
+import base64
+import hashlib
+from html.parser import HTMLParser
+from http.cookiejar import CookieJar, DefaultCookiePolicy
 import importlib.util
 import json
 import os
@@ -9,8 +13,9 @@ import secrets
 import subprocess
 import tempfile
 import time
-from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode, urlsplit
+from urllib.request import HTTPRedirectHandler, HTTPCookieProcessor, Request, build_opener, urlopen
 import uuid
 
 import yaml
@@ -44,6 +49,71 @@ def wait_ready(url):
             pass
         time.sleep(2)
     raise RuntimeError("Keycloak startup did not become healthy")
+
+
+class AuthPage(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.forms = []
+        self.current = None
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        attributes = dict(attrs)
+        if tag == "form":
+            self.current = {"action": attributes.get("action"), "fields": {}}
+            self.forms.append(self.current)
+        elif tag == "input" and self.current is not None and attributes.get("name"):
+            self.current["fields"][attributes["name"]] = attributes.get("value", "")
+
+    def handle_endtag(self, tag):
+        if tag == "form":
+            self.current = None
+
+
+class Browser:
+    def __init__(self, base):
+        self.base = base
+        browser = self
+
+        class LocalRedirects(HTTPRedirectHandler):
+            def redirect_request(self, request, response, code, message, headers, newurl):
+                return super().redirect_request(request, response, code, message, headers, browser.local_url(newurl))
+
+        # Only the isolated Docker test uses HTTP loopback for HTTPS-hostname cookies.
+        cookies = CookieJar(DefaultCookiePolicy(secure_protocols=("https", "http")))
+        self.opener = build_opener(HTTPCookieProcessor(cookies), LocalRedirects())
+
+    def local_url(self, url):
+        parsed = urlsplit(url)
+        if parsed.netloc == "auth.damircloud.com":
+            return self.base + parsed.path + ("?" + parsed.query if parsed.query else "")
+        if url.startswith(self.base + "/"):
+            return url
+        raise AssertionError("Authentication redirected outside Keycloak before MFA")
+
+    def page(self, url, fields=None):
+        data = urlencode(fields).encode() if fields is not None else None
+        with self.opener.open(Request(self.local_url(url), data=data), timeout=15) as response:
+            assert response.status == 200, "Browser authentication must return a usable page"
+            return AuthPage(response.read().decode())
+
+    def login_form(self, client):
+        verifier = secrets.token_urlsafe(48)
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
+        parameters = {"client_id": client["clientId"], "redirect_uri": client["redirectUris"][0],
+                      "response_type": "code", "scope": "openid profile email groups",
+                      "state": secrets.token_urlsafe(32), "code_challenge": challenge,
+                      "code_challenge_method": "S256"}
+        page = self.page(self.base + "/realms/platform/protocol/openid-connect/auth?" + urlencode(parameters))
+        form = next((item for item in page.forms if {"username", "password"} <= item["fields"].keys()), None)
+        assert form is not None, "Fresh login must show username/password before OTP"
+        return form
+
+
+def check_login_pages(base, realm):
+    for client in realm["clients"]:
+        Browser(base).login_form(client)
 
 
 def main():
@@ -122,17 +192,44 @@ def main():
             api.authenticate("platform", "platform-configurator", credentials["configuration_client_secret"])
             flow = api.request("GET", "/admin/realms/platform/authentication/flows/platform-browser/executions")
             assert next(item for item in flow if item.get("providerId") == "auth-otp-form")["requirement"] == "REQUIRED"
+            check_login_pages(base, realm)
+            # Reproduce the old partial PUTs, then prove reconciliation repairs them.
+            otp_index = next(index for index, item in enumerate(flow) if item.get("providerId") == "auth-otp-form")
+            mfa = next(flow[index] for index in range(otp_index - 1, -1, -1)
+                       if flow[index].get("authenticationFlow") and flow[index]["level"] == flow[otp_index]["level"] - 1)
+            flow_path = "/admin/realms/platform/authentication/flows/platform-browser/executions"
+            for execution in (mfa, flow[otp_index]):
+                api.request("PUT", flow_path, {"id": execution["id"], "requirement": "REQUIRED"})
+            try:
+                check_login_pages(base, realm)
+            except HTTPError as error:
+                assert error.code == 400, "The legacy ordering bug must reproduce the login failure"
+            else:
+                raise AssertionError("Regression test did not reproduce the legacy login failure")
+            configuration.configure(api, realm, credentials)
+            check_login_pages(base, realm)
             users = api.request("GET", "/admin/realms/platform/users?username=operator&exact=true")
             user_id = users[0]["id"]
             groups = api.request("GET", f"/admin/realms/platform/users/{user_id}/groups")
             assert [group["name"] for group in groups] == ["platform-admins"]
             group_id = groups[0]["id"]
+            changed_password = secrets.token_urlsafe(32)
             api.request("PUT", f"/admin/realms/platform/users/{user_id}/reset-password",
-                        {"type": "password", "value": secrets.token_urlsafe(32), "temporary": False})
+                        {"type": "password", "value": changed_password, "temporary": False})
+            api.request("PUT", f"/admin/realms/platform/users/{user_id}", {
+                "requiredActions": [], "firstName": "Test", "lastName": "Operator",
+                "email": "operator@example.invalid", "emailVerified": True,
+            })
+            browser = Browser(base)
+            form = browser.login_form(next(item for item in realm["clients"] if item["clientId"] == "grafana"))
+            otp_page = browser.page(form["action"], {**form["fields"], "username": "operator", "password": changed_password})
+            assert any({"totp", "totpSecret"} <= item["fields"].keys() for item in otp_page.forms), \
+                "A valid password must lead to mandatory OTP enrollment even without seeded required actions"
             password_id = next(item["id"] for item in api.request("GET", f"/admin/realms/platform/users/{user_id}/credentials")
                                if item["type"] == "password")
             api.request("DELETE", f"/admin/realms/platform/users/{user_id}/groups/{group_id}")
             configuration.configure(api, realm, credentials)
+            check_login_pages(base, realm)
             unchanged = api.request("GET", f"/admin/realms/platform/users/{user_id}/credentials")
             assert any(item["id"] == password_id for item in unchanged), "A sync must preserve changed passwords"
             assert api.request("GET", f"/admin/realms/platform/users/{user_id}/groups") == [], "A sync must preserve access revocation"
@@ -158,10 +255,11 @@ def main():
             api = configuration.API(base)
             wait_ready(health)
             configuration.configure(api, realm, credentials)
+            check_login_pages(base, realm)
             with urlopen(base + "/realms/platform/.well-known/openid-configuration") as response:
                 discovery = json.load(response)
             assert discovery["issuer"] == "https://auth.damircloud.com/realms/platform"
-            print("Passed: optimized startup, database isolation, realm setup, bootstrap revocation, password/access continuity and restart.")
+            print("Passed: optimized startup, database isolation, browser login/OTP enrollment, legacy flow repair, bootstrap revocation, password/access continuity and restart.")
         except Exception:
             logs = subprocess.run(["docker", "logs", "--tail", "35", keycloak], capture_output=True, text=True)
             sanitized = logs.stdout + logs.stderr
