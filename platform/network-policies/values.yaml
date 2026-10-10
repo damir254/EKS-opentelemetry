@@ -82,7 +82,8 @@ workloads:
     namespace: monitoring
     selector: {app.kubernetes.io/name: prometheus, operator.prometheus.io/name: monitoring-kube-prometheus-prometheus}
     api: true
-    egressCIDRs: {private: [10250, 9100, 10257, 10259, 2381]}
+    # Only kubelet/node-exporter need direct node metrics ports.
+    egressCIDRs: {private: [10250, 9100]}
   alertmanager:
     services:
       monitoring-kube-prometheus-alertmanager: {"9093": [9093], "8080": [8080]}

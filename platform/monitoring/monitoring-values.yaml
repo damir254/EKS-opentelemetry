@@ -60,6 +60,15 @@ coreDns:
 kubeProxy:
   enabled: false
 
+# AWS manages these components. Disable pod-based monitors and their associated
+# stock rules/dashboards; application, node and API-server monitoring stays active.
+kubeScheduler:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeEtcd:
+  enabled: false
+
 prometheusOperator:
   resources:
     requests:
