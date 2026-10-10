@@ -1,0 +1,118 @@
+{{- range $name := list "kafka" "postgres" "valkey" }}
+{{- $dependency := index $.Values $name }}
+{{- if and $dependency.enabled ($dependency.metrics | default dict).enabled }}
+{{- $metrics := $dependency.metrics }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-exporter
+  labels:
+    {{- include "otel-demo.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}-exporter
+spec:
+  replicas: 1
+  # One exporter per single-instance dependency; avoid double counting on updates.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "otel-demo.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $name }}-exporter
+  template:
+    metadata:
+      labels:
+        {{- include "otel-demo.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $name }}-exporter
+        sidecar.istio.io/inject: "false"
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        {{- if eq $name "valkey" }}
+        runAsUser: 59000
+        runAsGroup: 59000
+        {{- else }}
+        runAsUser: 65534
+        runAsGroup: 65534
+        {{- end }}
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $name }}-exporter
+          image: "{{ $metrics.image.repository }}:{{ $metrics.image.tag }}"
+          imagePullPolicy: {{ $metrics.image.pullPolicy }}
+          args:
+            - --web.listen-address=:{{ $metrics.port }}
+            {{- if eq $name "kafka" }}
+            - --kafka.server={{ $dependency.service.name }}:9092
+            - --kafka.version={{ regexFind "^[0-9]+\\.[0-9]+\\.[0-9]+" $dependency.image.tag }}
+            - --offset.show-all
+            {{- else if eq $name "postgres" }}
+            - --collection-timeout=8s
+            - --collector.long_running_transactions
+            {{- else }}
+            - --redis.addr=redis://{{ $dependency.service.name }}:6379
+            {{- end }}
+          {{- if eq $name "postgres" }}
+          env:
+            - name: DATA_SOURCE_URI
+              value: astronomy-db:{{ $dependency.port }}/astronomy_db?sslmode=disable
+            - name: DATA_SOURCE_USER
+              value: monitoring_user
+            - name: DATA_SOURCE_PASS_FILE
+              value: /etc/postgres-exporter/password
+          volumeMounts:
+            - name: credentials
+              mountPath: /etc/postgres-exporter
+              readOnly: true
+          {{- end }}
+          ports:
+            - name: http-metrics
+              containerPort: {{ $metrics.port }}
+          readinessProbe:
+            # Backend availability is reported by metrics, not exporter readiness.
+            httpGet: {path: /, port: http-metrics}
+            periodSeconds: 10
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet: {path: /, port: http-metrics}
+            periodSeconds: 30
+            timeoutSeconds: 2
+          resources:
+            {{- toYaml $metrics.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      {{- if eq $name "postgres" }}
+      volumes:
+        - name: credentials
+          secret:
+            secretName: astronomy-db-credentials
+            items:
+              - key: MONITORING_PASSWORD
+                path: password
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-exporter
+  labels:
+    {{- include "otel-demo.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}-exporter
+    dependency: {{ $name }}
+    otel-demo/metrics: dependency
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "otel-demo.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}-exporter
+  ports:
+    - name: http-metrics
+      port: {{ $metrics.port }}
+      targetPort: http-metrics
+{{- end }}
+{{- end }}

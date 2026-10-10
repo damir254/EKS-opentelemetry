@@ -1,0 +1,232 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: otel-demo-dependencies
+  namespace: monitoring
+  labels:
+    release: monitoring
+    app.kubernetes.io/part-of: otel-demo
+spec:
+  groups:
+    - name: otel-demo.dependencies
+      rules:
+        - record: otel_demo:kafka:consumer_lag
+          expr: |
+            sum by (namespace, consumergroup, topic) (
+              kafka_consumergroup_lag{project="otel-demo", namespace="dev", dependency="kafka"} >= 0
+            )
+        - alert: OtelDemoDependencyMetricsUnavailable
+          expr: |
+            up{project="otel-demo", namespace="dev", dependency=~"kafka|postgres|valkey"} == 0
+            or absent(up{project="otel-demo", namespace="dev", dependency="kafka"})
+            or absent(up{project="otel-demo", namespace="dev", dependency="postgres"})
+            or absent(up{project="otel-demo", namespace="dev", dependency="valkey"})
+          for: 3m
+          labels: {severity: critical}
+          annotations:
+            summary: 'Cannot scrape {{ $labels.dependency }} dependency metrics'
+            description: >-
+              The {{ $labels.dependency }} exporter is unreachable or undiscovered
+              for 3 minutes. Check the exporter, ServiceMonitor, network policies
+              and backend connectivity. Dependency health is unknown.
+        - alert: OtelDemoDependencyServerMetricsMissing
+          expr: |
+            (absent_over_time(kafka_brokers{project="otel-demo", namespace="dev", dependency="kafka"}[5m])
+             and on () (max(up{project="otel-demo", namespace="dev", dependency="kafka"}) == 1))
+            or (absent_over_time(pg_up{project="otel-demo", namespace="dev", dependency="postgres"}[5m])
+                and on () (max(up{project="otel-demo", namespace="dev", dependency="postgres"}) == 1))
+            or (absent_over_time(redis_up{project="otel-demo", namespace="dev", dependency="valkey"}[5m])
+                and on () (max(up{project="otel-demo", namespace="dev", dependency="valkey"}) == 1))
+          for: 3m
+          labels: {severity: warning}
+          annotations:
+            summary: '{{ $labels.dependency }} exporter lacks expected server metrics'
+            description: >-
+              Scraping succeeds but an expected backend metric has been absent
+              for 5 minutes. Check exporter configuration, credentials, enabled
+              collectors and version changes. Missing data does not establish health.
+        - alert: OtelDemoDependencyCollectionErrors
+          expr: |
+            count by (namespace, dependency, collector) (
+              (((pg_scrape_collector_success{project="otel-demo", namespace="dev", dependency="postgres"} == 0)
+                or (pg_exporter_last_scrape_error{project="otel-demo", namespace="dev", dependency="postgres"} > 0))
+               and on (namespace, pod) (pg_up{project="otel-demo", namespace="dev", dependency="postgres"} == 1))
+              or ((redis_exporter_last_scrape_error{project="otel-demo", namespace="dev", dependency="valkey"} > 0)
+                  and on (namespace, pod) (redis_up{project="otel-demo", namespace="dev", dependency="valkey"} == 1))
+            ) > 0
+          for: 3m
+          labels: {severity: warning, project: otel-demo}
+          annotations:
+            summary: '{{ $labels.dependency }} metric collection fails despite backend connectivity'
+            description: >-
+              The exporter can reach its backend but has metric collection errors
+              for 3 minutes. Check collector permissions, supported commands,
+              query timeouts and exporter logs. Some server metrics may be missing.
+        - alert: OtelDemoKafkaConsumerLagHigh
+          expr: otel_demo:kafka:consumer_lag > 1000
+          for: 10m
+          labels: {severity: warning, project: otel-demo, dependency: kafka}
+          annotations:
+            summary: 'Kafka group {{ $labels.consumergroup }} has a sustained backlog'
+            description: >-
+              Group {{ $labels.consumergroup }} on {{ $labels.topic }} is more than
+              1000 records behind for 10 minutes. Inspect consumers, processing
+              errors and downstream dependencies before increasing replicas.
+              This initial threshold requires load-test tuning.
+        - alert: OtelDemoKafkaConsumerGroupInactive
+          expr: |
+            (otel_demo:kafka:consumer_lag > 0)
+            and on (namespace, consumergroup)
+            (max by (namespace, consumergroup) (
+              kafka_consumergroup_members{project="otel-demo", namespace="dev", dependency="kafka"}
+            ) == 0)
+          for: 5m
+          labels: {severity: warning, project: otel-demo, dependency: kafka}
+          annotations:
+            summary: 'Kafka group {{ $labels.consumergroup }} has backlog without members'
+            description: >-
+              Group {{ $labels.consumergroup }} has committed-offset lag on
+              {{ $labels.topic }} but no active members for 5 minutes. Check
+              consumer readiness, crashes and broker connectivity. Retired
+              groups may need offset cleanup after confirming they are unused.
+        - alert: OtelDemoKafkaPartitionsUnderReplicated
+          expr: |
+            sum by (namespace, topic) (
+              kafka_topic_partition_under_replicated_partition{project="otel-demo", namespace="dev", dependency="kafka"}
+            ) > 0
+          for: 3m
+          labels: {severity: warning, project: otel-demo, dependency: kafka}
+          annotations:
+            summary: 'Kafka topic {{ $labels.topic }} has under-replicated partitions'
+            description: >-
+              At least one partition lacks its configured in-sync replicas.
+              Check broker availability, storage and replication. The current
+              single-broker, replication-factor-one deployment has no broker redundancy.
+        - alert: OtelDemoKafkaPartitionWithoutLeader
+          expr: kafka_topic_partition_leader{project="otel-demo", namespace="dev", dependency="kafka"} < 0
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: 'Kafka {{ $labels.topic }}/{{ $labels.partition }} has no leader'
+            description: >-
+              Partition {{ $labels.partition }} on {{ $labels.topic }} has no
+              leader for 2 minutes. Check the broker/controller and its storage;
+              affected producers and consumers cannot make progress.
+        - alert: OtelDemoPostgresUnavailable
+          expr: pg_up{project="otel-demo", namespace="dev", dependency="postgres"} == 0
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: 'PostgreSQL cannot be queried by its monitoring account'
+            description: >-
+              The exporter cannot query astronomy-db for 2 minutes. Check the
+              server, network policy, monitoring_user and the existing
+              MONITORING_PASSWORD Secret. This can indicate credentials or
+              monitoring permissions as well as a database outage.
+        - alert: OtelDemoPostgresConnectionsNearLimit
+          expr: |
+            sum by (namespace) (pg_stat_database_numbackends{project="otel-demo", namespace="dev", dependency="postgres"})
+            / clamp_min(max by (namespace) (pg_settings_max_connections{project="otel-demo", namespace="dev", dependency="postgres"}), 1) > 0.8
+          for: 5m
+          labels: {severity: warning, project: otel-demo, dependency: postgres}
+          annotations:
+            summary: 'PostgreSQL connections exceed 80% of max_connections'
+            description: >-
+              Connections have exceeded 80% of max_connections for 5 minutes.
+              Inspect application connection pools, leaks and idle transactions.
+              Scaling application pods can increase connection pressure further.
+        - alert: OtelDemoPostgresLockWaits
+          expr: |
+            sum by (namespace, datname) (
+              pg_stat_activity_count{project="otel-demo", namespace="dev", dependency="postgres", wait_event_type="Lock"}
+            ) > 0
+          for: 5m
+          labels: {severity: warning, project: otel-demo, dependency: postgres}
+          annotations:
+            summary: 'PostgreSQL {{ $labels.datname }} has sustained lock waits'
+            description: >-
+              At least one session has waited on a lock for the last 5 minutes.
+              Inspect blocking sessions and transaction boundaries. The metric
+              measures waiting sessions, not the number of ordinary held locks.
+        - alert: OtelDemoPostgresLongTransaction
+          expr: |
+            max by (namespace, datname) (
+              pg_stat_activity_max_tx_duration{project="otel-demo", namespace="dev", dependency="postgres"}
+            ) > 60
+          for: 5m
+          labels: {severity: warning, project: otel-demo, dependency: postgres}
+          annotations:
+            summary: 'PostgreSQL {{ $labels.datname }} has long-lived transactions'
+            description: >-
+              The oldest transaction has exceeded 60 seconds for 5 minutes.
+              Inspect slow queries and sessions idle in transaction; long
+              transactions can retain locks and prevent vacuum cleanup.
+        - alert: OtelDemoPostgresDeadlocks
+          expr: |
+            sum by (namespace, datname) (
+              rate(pg_stat_database_deadlocks{project="otel-demo", namespace="dev", dependency="postgres"}[5m])
+            ) > 0
+          for: 2m
+          labels: {severity: warning, project: otel-demo, dependency: postgres}
+          annotations:
+            summary: 'PostgreSQL {{ $labels.datname }} detects deadlocks'
+            description: >-
+              PostgreSQL has detected deadlocks over the last 5 minutes,
+              sustained for 2 minutes. Check transaction lock ordering and
+              application retry handling.
+        - alert: OtelDemoValkeyUnavailable
+          expr: redis_up{project="otel-demo", namespace="dev", dependency="valkey"} == 0
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: 'Valkey cannot be queried by its exporter'
+            description: >-
+              The exporter cannot query valkey-cart for 2 minutes. Check the
+              server, network policies, memory termination events and storage.
+        - alert: OtelDemoValkeyMemoryPressure
+          expr: |
+            (
+              max by (namespace, pod) (container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", namespace="dev", container="valkey", image!=""})
+              / max by (namespace, pod) (kube_pod_container_resource_limits{namespace="dev", container="valkey", resource="memory", unit="byte"}) > 0.8
+            )
+            and on (namespace, pod) otel_demo:pod:info{workload="valkey-cart", workload_type="statefulset"}
+          for: 5m
+          labels: {severity: warning, project: otel-demo, dependency: valkey}
+          annotations:
+            summary: 'Valkey working set exceeds 80% of its container limit'
+            description: >-
+              Valkey memory exceeds 80% of its Kubernetes limit for 5 minutes.
+              Check dataset growth and persistence overhead. maxmemory is currently
+              unset, so the container can be OOM-killed without key evictions.
+        - alert: OtelDemoValkeyEvictingKeys
+          expr: rate(redis_evicted_keys_total{project="otel-demo", namespace="dev", dependency="valkey"}[5m]) > 0
+          for: 2m
+          labels: {severity: warning}
+          annotations:
+            summary: 'Valkey evicts keys under memory pressure'
+            description: >-
+              Valkey has evicted keys in the last 5 minutes, sustained for
+              2 minutes. Inspect memory limits and eviction policy; cart data
+              may be removed. No evictions does not imply sufficient memory.
+        - alert: OtelDemoValkeyRejectingConnections
+          expr: rate(redis_rejected_connections_total{project="otel-demo", namespace="dev", dependency="valkey"}[5m]) > 0
+          for: 2m
+          labels: {severity: warning}
+          annotations:
+            summary: 'Valkey rejects client connections'
+            description: >-
+              Valkey has rejected connections for 2 minutes. Check maxclients,
+              client connection pools and file-descriptor limits.
+        - alert: OtelDemoValkeyPersistenceFailure
+          expr: |
+            (redis_aof_last_write_status{project="otel-demo", namespace="dev", dependency="valkey"} == 0)
+            and on (namespace, pod)
+            (redis_aof_enabled{project="otel-demo", namespace="dev", dependency="valkey"} == 1)
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: 'Valkey append-only persistence writes fail'
+            description: >-
+              The last AOF write failed while append-only persistence is enabled.
+              Check the PVC, available space and filesystem errors. Acknowledged
+              cart updates may not survive a server replacement.

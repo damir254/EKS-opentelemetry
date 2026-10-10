@@ -143,6 +143,50 @@ kube-state-metrics:
   # Scope project rules by the existing Helm labels, without exporting all labels.
   metricLabelsAllowlist:
     - deployments=[app.kubernetes.io/name,app.kubernetes.io/instance]
+    - statefulsets=[app.kubernetes.io/name,app.kubernetes.io/instance]
+  rbac:
+    extraRules:
+      - apiGroups: [argoproj.io]
+        resources: [rollouts]
+        verbs: [list, watch]
+  # Built-in kube-state-metrics collectors do not understand Argo Rollouts.
+  customResourceState:
+    enabled: true
+    config:
+      kind: CustomResourceStateMetrics
+      spec:
+        resources:
+          - groupVersionKind:
+              group: argoproj.io
+              version: v1alpha1
+              kind: Rollout
+            metricNamePrefix: otel_demo_rollout
+            labelsFromPath:
+              namespace: [metadata, namespace]
+              rollout: [metadata, name]
+              app_name: [metadata, labels, app.kubernetes.io/name]
+              app_instance: [metadata, labels, app.kubernetes.io/instance]
+            metrics:
+              - name: identity_info
+                help: Argo Rollout identity and project ownership.
+                each:
+                  type: Info
+                  info:
+                    labelsFromPath:
+                      uid: [metadata, uid]
+              - name: replicas_desired
+                help: Desired Argo Rollout replicas, excluding canary surge.
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [spec, replicas]
+              - name: replicas_available
+                help: Argo Rollout pods available for at least minReadySeconds.
+                each:
+                  type: Gauge
+                  gauge:
+                    path: [status, availableReplicas]
+                    nilIsZero: true
 
 nodeExporter:
   enabled: true

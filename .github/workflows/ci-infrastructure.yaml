@@ -108,5 +108,11 @@ jobs:
       - name: Test telemetry alerts and Collector failure visibility
         run: python .github/scripts/test-telemetry-pipeline.py
 
+      - name: Test workload ownership and dependency alert behavior
+        run: python .github/scripts/test-monitoring-rules.py
+
+      - name: Test dependency metrics with pinned servers and exporters
+        run: python .github/scripts/test-dependency-metrics.py
+
       - name: Test demo dependency persistence across container replacement
         run: python .github/scripts/test-demo-storage.py

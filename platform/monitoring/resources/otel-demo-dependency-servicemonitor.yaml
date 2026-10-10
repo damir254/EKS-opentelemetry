@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-demo-dependencies
+  namespace: monitoring
+  labels:
+    release: monitoring
+    app.kubernetes.io/part-of: otel-demo
+spec:
+  namespaceSelector:
+    matchNames: [dev]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: otel-demo
+      app.kubernetes.io/instance: otel-demo
+      otel-demo/metrics: dependency
+  targetLabels: [dependency]
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+      honorLabels: false
+      relabelings:
+        - targetLabel: project
+          replacement: otel-demo

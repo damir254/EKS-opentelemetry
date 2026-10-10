@@ -21,19 +21,52 @@ spec:
                 label_app_kubernetes_io_instance="otel-demo"
               }
             )
-        # Reuse the stack's ReplicaSet -> Deployment ownership recording rule.
-        # Only active Deployment pods qualify; Jobs and completed pods do not.
+        - record: otel_demo:statefulset:info
+          expr: |
+            max by (namespace, statefulset) (
+              kube_statefulset_labels{
+                job="kube-state-metrics", namespace="dev",
+                label_app_kubernetes_io_name="otel-demo",
+                label_app_kubernetes_io_instance="otel-demo"
+              }
+            )
+        - record: otel_demo:rollout:info
+          expr: |
+            max by (namespace, rollout) (
+              otel_demo_rollout_identity_info{
+                job="kube-state-metrics", namespace="dev",
+                app_name="otel-demo", app_instance="otel-demo"
+              }
+            )
+        - record: otel_demo:workload:info
+          expr: |
+            max by (namespace, workload, workload_type) (
+              label_replace(label_replace(otel_demo:deployment:info, "workload", "$1", "deployment", "(.+)"), "workload_type", "deployment", "workload", ".+")
+              or label_replace(label_replace(otel_demo:statefulset:info, "workload", "$1", "statefulset", "(.+)"), "workload_type", "statefulset", "workload", ".+")
+              or label_replace(label_replace(otel_demo:rollout:info, "workload", "$1", "rollout", "(.+)"), "workload_type", "rollout", "workload", ".+")
+            )
+        # Built-in ownership covers Deployments/StatefulSets. Rollout pods need
+        # the explicit Pod -> ReplicaSet -> Rollout join. Deduplicate KSM targets.
+        # Jobs, completed pods and other Helm releases remain excluded.
         - record: otel_demo:pod:info
           expr: |
-            max by (namespace, pod, deployment) (
+            max by (namespace, pod, workload, workload_type) (
+              namespace_workload_pod:kube_pod_owner:relabel{
+                namespace="dev", workload_type=~"deployment|statefulset"
+              }
+              or
               label_replace(
-                namespace_workload_pod:kube_pod_owner:relabel{
-                  namespace="dev", workload_type="deployment"
-                },
-                "deployment", "$1", "workload", "(.+)"
+                max by (namespace, pod, replicaset) (
+                  label_replace(kube_pod_owner{job="kube-state-metrics", namespace="dev", owner_kind="ReplicaSet", owner_is_controller="true"}, "replicaset", "$1", "owner_name", "(.+)")
+                )
+                * on (namespace, replicaset) group_left (workload)
+                max by (namespace, replicaset, workload) (
+                  label_replace(kube_replicaset_owner{job="kube-state-metrics", namespace="dev", owner_kind="Rollout", owner_is_controller="true"}, "workload", "$1", "owner_name", "(.+)")
+                ),
+                "workload_type", "rollout", "workload", ".+"
               )
             )
-            and on (namespace, deployment) otel_demo:deployment:info
+            and on (namespace, workload, workload_type) otel_demo:workload:info
             and on (namespace, pod) (
               max by (namespace, pod) (
                 kube_pod_status_phase{
@@ -45,16 +78,34 @@ spec:
         # Match the actual HPA scale target, rather than assuming its name.
         - record: otel_demo:hpa:info
           expr: |
-            max by (namespace, horizontalpodautoscaler, deployment) (
+            max by (namespace, horizontalpodautoscaler, workload, workload_type) (
               label_replace(
-                kube_horizontalpodautoscaler_info{
-                  job="kube-state-metrics", namespace="dev",
-                  scaletargetref_kind="Deployment"
-                },
-                "deployment", "$1", "scaletargetref_name", "(.+)"
+                label_replace(kube_horizontalpodautoscaler_info{job="kube-state-metrics", namespace="dev", scaletargetref_kind="Deployment"}, "workload", "$1", "scaletargetref_name", "(.+)"), "workload_type", "deployment", "workload", ".+"
+              )
+              or label_replace(
+                label_replace(kube_horizontalpodautoscaler_info{job="kube-state-metrics", namespace="dev", scaletargetref_kind="StatefulSet"}, "workload", "$1", "scaletargetref_name", "(.+)"), "workload_type", "statefulset", "workload", ".+"
+              )
+              or label_replace(
+                label_replace(kube_horizontalpodautoscaler_info{job="kube-state-metrics", namespace="dev", scaletargetref_kind="Rollout"}, "workload", "$1", "scaletargetref_name", "(.+)"), "workload_type", "rollout", "workload", ".+"
               )
             )
-            and on (namespace, deployment) otel_demo:deployment:info
+            and on (namespace, workload, workload_type) otel_demo:workload:info
+        - record: otel_demo:workload:replicas_desired
+          expr: |
+            max by (namespace, workload, workload_type) (
+              label_replace(label_replace(kube_deployment_spec_replicas{job="kube-state-metrics", namespace="dev"}, "workload", "$1", "deployment", "(.+)"), "workload_type", "deployment", "workload", ".+")
+              or label_replace(label_replace(kube_statefulset_replicas{job="kube-state-metrics", namespace="dev"}, "workload", "$1", "statefulset", "(.+)"), "workload_type", "statefulset", "workload", ".+")
+              or label_replace(label_replace(otel_demo_rollout_replicas_desired{job="kube-state-metrics", namespace="dev"}, "workload", "$1", "rollout", "(.+)"), "workload_type", "rollout", "workload", ".+")
+            )
+            and on (namespace, workload, workload_type) otel_demo:workload:info
+        - record: otel_demo:workload:replicas_available
+          expr: |
+            max by (namespace, workload, workload_type) (
+              label_replace(label_replace(kube_deployment_status_replicas_available{job="kube-state-metrics", namespace="dev"}, "workload", "$1", "deployment", "(.+)"), "workload_type", "deployment", "workload", ".+")
+              or label_replace(label_replace(kube_statefulset_status_replicas_ready{job="kube-state-metrics", namespace="dev"}, "workload", "$1", "statefulset", "(.+)"), "workload_type", "statefulset", "workload", ".+")
+              or label_replace(label_replace(otel_demo_rollout_replicas_available{job="kube-state-metrics", namespace="dev"}, "workload", "$1", "rollout", "(.+)"), "workload_type", "rollout", "workload", ".+")
+            )
+            and on (namespace, workload, workload_type) otel_demo:workload:info
         - alert: OtelDemoDeploymentUnavailable
           expr: |
             (
@@ -84,7 +135,7 @@ spec:
                 }[15m])
               ) > 3
             )
-            * on (namespace, pod) group_left (deployment) otel_demo:pod:info
+            * on (namespace, pod) group_left (workload, workload_type) otel_demo:pod:info
           for: 2m
           labels:
             severity: warning
@@ -93,9 +144,25 @@ spec:
             summary: 'Otel demo container {{ $labels.pod }}/{{ $labels.container }} is restarting frequently'
             description: >-
               Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }}
-              (Deployment {{ $labels.deployment }}) has more than 3 restarts in the
+              ({{ $labels.workload_type }} {{ $labels.workload }}) has more than 3 restarts in the
               last 15 minutes, sustained for 2 minutes. Check termination reasons,
               logs, probes, and resource limits.
+        - alert: OtelDemoRolloutUnavailable
+          expr: |
+            (otel_demo:workload:replicas_available{workload_type="rollout"}
+             < otel_demo:workload:replicas_desired{workload_type="rollout"})
+          for: 5m
+          labels:
+            severity: warning
+            project: otel-demo
+          annotations:
+            summary: 'Otel demo Rollout {{ $labels.workload }} has unavailable replicas'
+            description: >-
+              Rollout {{ $labels.namespace }}/{{ $labels.workload }} has fewer
+              available replicas than desired for 5 minutes. Check readiness,
+              Rollout events, resource limits and scheduling. Canary surge pods
+              do not increase the desired baseline in this check.
         # KubeHpaMaxedOut is reused with a 10m hold in monitoring-values.yaml.
         # KubeDeploymentReplicasMismatch already covers replicas below desired;
         # a second project rule would duplicate the unavailable-replica warning.
+        # StatefulSet availability and HPA limits use the stack's existing alerts.

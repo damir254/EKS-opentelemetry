@@ -88,6 +88,8 @@ def main():
     namespaces = {name: f"{prefix}-{suffix}" for name, suffix in (
         ("monitoring", "mon"), ("argocd", "argo"), ("external-secrets", "eso"), ("dev", "demo"), ("outsider", "other"))}
     roles = {"grafana": [3000, 9094], "loki": [3100], "prometheus": [9090], "collector": [8888, 8889],
+             "kafka-exporter": [9308], "postgres-exporter": [9187], "valkey-exporter": [9121],
+             "demo-kafka": [9092], "demo-postgres": [5432], "demo-valkey": [6379],
              "argocd-repo": [8081], "argocd-server": [8080], "argocd-redis": [6379, 26379],
              "argocd-haproxy": [6379], "external-secrets": [9999]}
     selected = {"platform-" + name for name in roles} | {"platform-default-deny"}
@@ -104,8 +106,8 @@ def main():
             item["metadata"].pop("annotations", None)
             item = rewrite(item, namespaces)
             objects.append(item)
-    # Exercise the Collector's real existing demo policies, plus its new Service
-    # DNS allowance, instead of assuming an unrestricted ingestion client.
+    # Exercise the real demo policies and platform Service DNS allowances for
+    # the Collector and dependency exporters/backends.
     demo = ROOT / "helm/otel-demo"
     app = yaml.safe_load((ROOT / "platform/argocd/applications/otel-demo.yaml").read_text())
     flags = [argument for file in app["spec"]["source"]["helm"]["valueFiles"] for argument in ("-f", str(demo / file))]
@@ -114,7 +116,8 @@ def main():
         if not item or item["kind"] != "NetworkPolicy":
             continue
         selector = item["spec"]["podSelector"].get("matchLabels", {})
-        if not all(config["workloads"]["collector"]["selector"].get(k) == v for k, v in selector.items()):
+        demo_roles = [role for role in roles if config["workloads"][role]["namespace"] == "dev"]
+        if not any(all(config["workloads"][role]["selector"].get(k) == v for k, v in selector.items()) for role in demo_roles):
             continue
         if item["spec"]["podSelector"].get("matchExpressions"):
             continue  # Istio-specific rules select different demo workloads.
@@ -165,6 +168,15 @@ def main():
             ("prometheus", internal("collector", 8889), "allow"),
             ("grafana", internal("collector", 8888), "deny"),
             ("outside-rogue", internal("collector", 8888), "deny"),
+            ("prometheus", internal("kafka-exporter", 9308), "allow"),
+            ("prometheus", internal("postgres-exporter", 9187), "allow"),
+            ("prometheus", internal("valkey-exporter", 9121), "allow"),
+            ("kafka-exporter", internal("demo-kafka", 9092), "allow"),
+            ("postgres-exporter", internal("demo-postgres", 5432), "allow"),
+            ("valkey-exporter", internal("demo-valkey", 6379), "allow"),
+            ("grafana", internal("postgres-exporter", 9187), "deny"),
+            ("inside-rogue", internal("valkey-exporter", 9121), "deny"),
+            ("kafka-exporter", internal("demo-postgres", 5432), "deny"),
             ("grafana", "https://auth.damircloud.com/realms/platform/.well-known/openid-configuration", "allow"),
             ("outside-rogue", internal("loki", 3100), "deny"),
             ("inside-rogue", internal("loki", 3100), "deny"),

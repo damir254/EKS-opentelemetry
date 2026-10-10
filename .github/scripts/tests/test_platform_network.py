@@ -56,6 +56,27 @@ class PlatformNetworkTests(unittest.TestCase):
                 self.assertFalse(policies.permits(self.pod("collector"), client, "ingress", port))
             self.assertFalse(policies.connection(self.pod("prometheus"), self.pod("collector"), port, "UDP"))
 
+    def test_dependency_exporters_allow_only_scraping_and_their_own_backend(self):
+        application = yaml.safe_load((ROOT / "platform/argocd/applications/otel-demo.yaml").read_text())
+        chart = ROOT / application["spec"]["source"]["path"]
+        command = ["helm", "template", "otel-demo", str(chart), "-n", "dev"]
+        for filename in application["spec"]["source"]["helm"]["valueFiles"]:
+            command += ["-f", str(chart / filename)]
+        demo = [r for r in yaml.safe_load_all(subprocess.check_output(command, text=True)) if r]
+        policies = model.Policies(self.resources + demo)
+        backends = {"kafka": ("demo-kafka", 9092, 9308), "postgres": ("demo-postgres", 5432, 9187),
+                    "valkey": ("demo-valkey", 6379, 9121)}
+        for name, (backend, server_port, metrics_port) in backends.items():
+            exporter = self.pod(name + "-exporter")
+            self.assertTrue(policies.connection(self.pod("prometheus"), exporter, metrics_port))
+            self.assertTrue(policies.connection(exporter, self.pod(backend), server_port))
+            self.assertFalse(policies.connection(self.pod("grafana"), exporter, metrics_port))
+            self.assertFalse(policies.connection(self.pod("prometheus"), self.pod(backend), server_port))
+            self.assertFalse(policies.connection(exporter, self.pod("argocd-server"), 8080))
+            for other, (other_backend, other_port, _) in backends.items():
+                if other != name:
+                    self.assertFalse(policies.connection(exporter, self.pod(other_backend), other_port))
+
     def test_redis_and_repo_are_not_open_to_other_workloads(self):
         self.assertTrue(self.policies.connection(self.pod("argocd-haproxy"), self.pod("argocd-redis"), 6379))
         self.assertTrue(self.policies.connection(self.pod("argocd-server"), self.pod("argocd-repo"), 8081))
@@ -121,6 +142,12 @@ class PlatformNetworkTests(unittest.TestCase):
         for name, workload in self.config["workloads"].items():
             owned = [p for p in self.policies.items if p["metadata"]["namespace"] == workload["namespace"]
                      and p["metadata"]["name"] == "platform-" + name]
+            if (not workload.get("managed", True) and not workload.get("externalProfiles")
+                    and not any(edge["from"] == name for edge in self.config["connections"])):
+                # Backend-only demo entries declare Service routes for clients;
+                # their pod policies belong to the demo chart, not this chart.
+                self.assertFalse(owned, name)
+                continue
             self.assertEqual(len(owned), 1, name)
             expected = {"Ingress", "Egress"} if workload.get("managed", True) else {"Egress"}
             self.assertEqual(set(owned[0]["spec"]["policyTypes"]), expected)

@@ -1,6 +1,16 @@
 # Single-instance demo data survives pod replacement; deleting its StatefulSet deletes storage.
 postgres:
   enabled: true
+  metrics:
+    enabled: true
+    port: 9187
+    image:
+      repository: quay.io/prometheuscommunity/postgres-exporter
+      tag: "v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e"
+      pullPolicy: IfNotPresent
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 100m, memory: 128Mi}
   persistence:
     storageClassName: gp3
     size: 5Gi
@@ -53,6 +63,16 @@ flagd:
     failureThreshold: 3
 valkey:
   enabled: true
+  metrics:
+    enabled: true
+    port: 9121
+    image:
+      repository: ghcr.io/oliver006/redis_exporter
+      tag: "v1.93.0@sha256:6ca518a72f30f7f576ef92963de1b91d3c3f5fd3aeac949f878bfda183587820"
+      pullPolicy: IfNotPresent
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {cpu: 100m, memory: 64Mi}
   persistence:
     storageClassName: gp3
     size: 1Gi
@@ -80,6 +100,16 @@ valkey:
     failureThreshold: 3
 kafka:
   enabled: true
+  metrics:
+    enabled: true
+    port: 9308
+    image:
+      repository: danielqsj/kafka-exporter
+      tag: "v1.10.0@sha256:346a53c2489a3530790d01f7b96632496d0d58926662f4c35bb65f569db2ab42"
+      pullPolicy: IfNotPresent
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 100m, memory: 128Mi}
   persistence:
     storageClassName: gp3
     size: 10Gi

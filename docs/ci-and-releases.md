@@ -13,6 +13,9 @@ histograms separate, preserve Kubernetes metadata and retain service RED totals.
 See [application telemetry identity](telemetry-identity.md).
 Pipeline checks also validate Prometheus alert behavior and dashboard queries,
 then inject Collector export/queue failures and verify recovery without a cluster.
+Workload/dependency tests cover Rollout/StatefulSet ownership, actual custom
+Rollout metric generation, dependency alert behavior and pinned exporter/server
+compatibility.
 Grafana validation requires AWS-backed admin credentials for both the server and
 reload sidecars; recovery tests check password handling and sync prerequisites.
 Access guards require one HTTPS ALB class, its certificate list, separate host
@@ -25,7 +28,8 @@ Manifest guards require gp3 cleanup, migration-safe Service selectors and
 consolidation without `do-not-disrupt`.
 Platform network guards verify workload/hook coverage, internal pod and Service
 routes, bounded ingress and DNS-based outbound allowlists. They require one
-platform policy per workload, one Keycloak policy owner and no migration workloads.
+platform policy per managed workload and Service-client allowlist, one Keycloak
+policy owner and no migration workloads.
 An optional [isolated live smoke test](platform-network-isolation.md) verifies EKS enforcement;
 CI itself never connects to the cluster.
 Keycloak tests exercise optimized production startup, isolated PostgreSQL

@@ -108,6 +108,22 @@
         "port": {"$ref": "#/definitions/port"},
         "service": {"type": "object"},
         "resources": {"$ref": "#/definitions/resources"},
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "image": {"$ref": "#/definitions/image"},
+            "port": {"$ref": "#/definitions/port"},
+            "resources": {"$ref": "#/definitions/resources"}
+          },
+          "required": ["enabled"],
+          "if": {"properties": {"enabled": {"const": true}}},
+          "then": {
+            "required": ["image", "port", "resources"],
+            "properties": {"image": {"required": ["repository", "tag", "pullPolicy"]}}
+          }
+        },
         "persistence": {"$ref": "#/definitions/persistence"},
         "podAnnotations": {"type": "object", "additionalProperties": {"type": "string"}},
         "startupProbe": {"$ref": "#/definitions/probe"},

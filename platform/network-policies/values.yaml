@@ -244,6 +244,42 @@ workloads:
     namespace: dev
     selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: payment}
     managed: false
+  kafka-exporter:
+    services:
+      kafka-exporter: {"9308": [9308]}
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: kafka-exporter}
+    managed: false
+  postgres-exporter:
+    services:
+      postgres-exporter: {"9187": [9187]}
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: postgres-exporter}
+    managed: false
+  valkey-exporter:
+    services:
+      valkey-exporter: {"9121": [9121]}
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: valkey-exporter}
+    managed: false
+  demo-kafka:
+    services:
+      kafka: {"9092": [9092]}
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: kafka}
+    managed: false
+  demo-postgres:
+    services:
+      astronomy-db: {"5432": [5432]}
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: postgres}
+    managed: false
+  demo-valkey:
+    services:
+      valkey-cart: {"6379": [6379]}
+    namespace: dev
+    selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: valkey}
+    managed: false
 
 # Each edge generates pod allowlists and exact Service DNS/port allowances.
 # Auto Mode evaluates Service traffic before DNAT; pod IP rules alone are insufficient.
@@ -260,6 +296,12 @@ connections:
   - {from: prometheus, to: prometheus-operator, ports: [10250]}
   - {from: prometheus, to: kube-state-metrics, ports: [8080, 8081]}
   - {from: prometheus, to: collector, ports: [8888, 8889]}
+  - {from: prometheus, to: kafka-exporter, ports: [9308]}
+  - {from: prometheus, to: postgres-exporter, ports: [9187]}
+  - {from: prometheus, to: valkey-exporter, ports: [9121]}
+  - {from: kafka-exporter, to: demo-kafka, ports: [9092]}
+  - {from: postgres-exporter, to: demo-postgres, ports: [5432]}
+  - {from: valkey-exporter, to: demo-valkey, ports: [6379]}
   - {from: prometheus, to: keycloak, ports: [9000]}
   - {from: prometheus, to: argocd-controller, ports: [8082]}
   - {from: prometheus, to: argocd-server, ports: [8083]}
