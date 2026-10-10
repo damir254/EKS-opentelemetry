@@ -48,6 +48,8 @@ externalProfiles:
       - 'ecr.{{ .Values.region }}.amazonaws.com'
       - 'api.ecr.{{ .Values.region }}.amazonaws.com'
       - '*.dkr.ecr.{{ .Values.region }}.amazonaws.com'
+      # ECR redirects image config/layer downloads to its regional S3 bucket.
+      - 'prod-{{ .Values.region }}-starport-layer-bucket.s3.{{ .Values.region }}.amazonaws.com'
       - 'sts.{{ .Values.region }}.amazonaws.com'
     ports: [443]
   secrets:

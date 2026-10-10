@@ -80,6 +80,18 @@ class PlatformNetworkTests(unittest.TestCase):
             self.assertFalse(self.policies.permits(self.pod(name), {"domain": "example.com"}, "egress", 443))
         self.assertFalse(self.policies.permits(self.pod("external-secrets"), {"domain": "github.com"}, "egress", 443))
 
+    def test_ecr_downloads_allow_only_the_regional_bucket_over_https(self):
+        updater = self.pod("image-updater")
+        bucket = {"domain": "prod-eu-central-1-starport-layer-bucket.s3.eu-central-1.amazonaws.com"}
+        self.assertTrue(self.policies.permits(updater, bucket, "egress", 443))
+        self.assertFalse(self.policies.permits(updater, bucket, "egress", 80))
+        self.assertFalse(self.policies.permits(updater, bucket, "egress", 443, "UDP"))
+        for host in ("other-bucket.s3.eu-central-1.amazonaws.com",
+                     "prod-eu-west-1-starport-layer-bucket.s3.eu-west-1.amazonaws.com"):
+            self.assertFalse(self.policies.permits(updater, {"domain": host}, "egress", 443))
+        for name in ("argocd-repo", "argocd-server", "external-secrets"):
+            self.assertFalse(self.policies.permits(self.pod(name), bucket, "egress", 443))
+
     def test_chart_ingress_cannot_override_platform_allowlists(self):
         values = yaml.safe_load((ROOT / "platform/argocd/values.yaml").read_text())
         self.assertFalse(values["global"]["networkPolicy"]["create"])
