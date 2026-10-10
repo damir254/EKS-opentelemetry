@@ -40,6 +40,22 @@ class PlatformNetworkTests(unittest.TestCase):
         self.assertFalse(self.policies.permits(loki, wrong, "ingress", 3100))
         self.assertFalse(self.policies.permits(loki, self.pod("grafana"), "ingress", 9096))
 
+    def test_collector_metrics_are_accessible_only_to_prometheus(self):
+        application = yaml.safe_load((ROOT / "platform/argocd/applications/otel-demo.yaml").read_text())
+        chart = ROOT / application["spec"]["source"]["path"]
+        command = ["helm", "template", "otel-demo", str(chart), "-n", "dev"]
+        for filename in application["spec"]["source"]["helm"]["valueFiles"]:
+            command += ["-f", str(chart / filename)]
+        demo = [r for r in yaml.safe_load_all(subprocess.check_output(command, text=True)) if r]
+        policies = model.Policies(self.resources + demo)
+        for port in (8888, 8889):
+            self.assertTrue(policies.connection(self.pod("prometheus"), self.pod("collector"), port))
+            for client in (self.pod("grafana"), self.pod("loki"), self.pod("argocd-server"),
+                           dict(self.pod("prometheus"), namespace="dev"),
+                           {"namespace": "monitoring", "labels": {"role": "rogue"}}):
+                self.assertFalse(policies.permits(self.pod("collector"), client, "ingress", port))
+            self.assertFalse(policies.connection(self.pod("prometheus"), self.pod("collector"), port, "UDP"))
+
     def test_redis_and_repo_are_not_open_to_other_workloads(self):
         self.assertTrue(self.policies.connection(self.pod("argocd-haproxy"), self.pod("argocd-redis"), 6379))
         self.assertTrue(self.policies.connection(self.pod("argocd-server"), self.pod("argocd-repo"), 8081))

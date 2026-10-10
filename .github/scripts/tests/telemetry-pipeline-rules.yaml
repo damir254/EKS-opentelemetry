@@ -1,0 +1,729 @@
+# Behavioral alert tests: idle traffic, healthy delivery, failures and missing targets.
+rule_files:
+- telemetry-pipeline.yaml
+evaluation_interval: 1m
+tests:
+- name: Healthy idle pipelines do not alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryComponentScrapeUnavailable
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorApplicationScrapeUnavailable
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorInternalMetricsMissing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorRefusingData
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorExportFailures
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueDroppingData
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueNearCapacity
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryApplicationServerSpansMissing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLogDeliveryStalled
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLokiRequestFailures
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLokiDiscardingLogs
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLokiFlushFailures
+    exp_alerts: []
+- name: Healthy active pipelines do not alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+60x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+60x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+60x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryComponentScrapeUnavailable
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorApplicationScrapeUnavailable
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorInternalMetricsMissing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorRefusingData
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorExportFailures
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueDroppingData
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueNearCapacity
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryApplicationServerSpansMissing
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLogDeliveryStalled
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLokiRequestFailures
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLokiDiscardingLogs
+    exp_alerts: []
+  - eval_time: 20m
+    alertname: TelemetryLokiFlushFailures
+    exp_alerts: []
+- name: Failed collector target is detected
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 0+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryComponentScrapeUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        pod: otel-collector-ci
+        telemetry_component: collector
+        service: otel-collector
+        endpoint: http-internal
+        severity: critical
+        project: otel-demo
+      exp_annotations:
+        summary: Cannot scrape collector internal metrics
+        description: Prometheus has failed to scrape, or no longer discovers, the collector metrics target in dev
+          for 3 minutes. Check the ServiceMonitor, Service endpoints, pod readiness and network policies. Pipeline
+          health is unknown.
+- name: Disappeared collector target is detected
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryComponentScrapeUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        telemetry_component: collector
+        severity: critical
+        project: otel-demo
+      exp_annotations:
+        summary: Cannot scrape collector internal metrics
+        description: Prometheus has failed to scrape, or no longer discovers, the collector metrics target in dev
+          for 3 minutes. Check the ServiceMonitor, Service endpoints, pod readiness and network policies. Pipeline
+          health is unknown.
+- name: Disappeared Loki target is detected
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryComponentScrapeUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: monitoring
+        telemetry_component: loki
+        severity: critical
+        project: otel-demo
+      exp_annotations:
+        summary: Cannot scrape loki internal metrics
+        description: Prometheus has failed to scrape, or no longer discovers, the loki metrics target in monitoring
+          for 3 minutes. Check the ServiceMonitor, Service endpoints, pod readiness and network policies. Pipeline
+          health is unknown.
+- name: Missing application scrape is detected
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorApplicationScrapeUnavailable
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        service: otel-collector
+        endpoint: http-metrics
+        severity: critical
+        project: otel-demo
+        telemetry_component: collector
+      exp_annotations:
+        summary: Collector application metrics cannot be scraped
+        description: The Collector's application metrics endpoint on 8889 has failed scrapes or disappeared for
+          3 minutes. RED and native application metrics are unavailable even if the internal endpoint is healthy.
+- name: Successful scrape without internal metrics is not healthy
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorInternalMetricsMissing
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        telemetry_component: collector
+        severity: warning
+        project: otel-demo
+      exp_annotations:
+        summary: Collector scrape succeeds but expected internal metrics are missing
+        description: The internal scrape is reachable, but otelcol_process_uptime has been absent for at least 5
+          minutes. Check internal telemetry configuration, metric relabeling and Collector version changes.
+- name: Refused telemetry alarms
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: otelcol_receiver_refused_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+60x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorRefusingData
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        pod: otel-collector-ci
+        telemetry_component: collector
+        receiver: otlp
+        severity: warning
+        project: otel-demo
+      exp_annotations:
+        summary: Collector is refusing telemetry from otlp
+        description: Receiver otlp in dev/otel-collector-ci has refused telemetry for 2 minutes. Check memory-limiter
+          pressure, processor errors and application SDK export errors. SDK retries determine whether refused data
+          is ultimately lost.
+- name: Export failures alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: otelcol_exporter_send_failed_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+60x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorExportFailures
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        pod: otel-collector-ci
+        telemetry_component: collector
+        exporter: otlphttp/loki
+        severity: warning
+        project: otel-demo
+      exp_annotations:
+        summary: Collector exporter otlphttp/loki is failing
+        description: Exporter otlphttp/loki in dev/otel-collector-ci has export failures for 2 minutes. Check the
+          receiving backend, network policies and Collector logs. Failures can be retried and do not alone establish
+          data loss.
+- name: Queue enqueue failures alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: otelcol_exporter_enqueue_failed_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+60x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueDroppingData
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        pod: otel-collector-ci
+        telemetry_component: collector
+        exporter: otlphttp/loki
+        severity: critical
+        project: otel-demo
+      exp_annotations:
+        summary: Collector exporter otlphttp/loki cannot enqueue telemetry
+        description: Telemetry cannot enter the sending queue for otlphttp/loki in dev/otel-collector-ci. Check
+          queue capacity, in-flight retries and backend availability. Data may be lost.
+- name: Sustained queue pressure alarms
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: otelcol_exporter_queue_size{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 9+0x40
+  - series: otelcol_exporter_queue_capacity{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 10+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueNearCapacity
+    exp_alerts:
+    - exp_labels:
+        namespace: dev
+        pod: otel-collector-ci
+        telemetry_component: collector
+        exporter: otlphttp/loki
+        severity: warning
+        project: otel-demo
+      exp_annotations:
+        summary: Collector exporter otlphttp/loki queue exceeds 80%
+        description: The sending queue for otlphttp/loki has exceeded 80% of capacity for 5 minutes. Inspect backend
+          throughput and in-flight retries before raising queue size; queues consume memory.
+- name: Queue at exactly eighty percent does not alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: otelcol_exporter_queue_size{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 8+0x40
+  - series: otelcol_exporter_queue_capacity{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 10+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueNearCapacity
+    exp_alerts: []
+- name: In-flight retry with drained queue is not queue saturation
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: otelcol_exporter_queue_size{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otelcol_exporter_queue_capacity{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 10+0x40
+  - series: otelcol_exporter_in_flight_requests{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 1+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorQueueNearCapacity
+    exp_alerts: []
+- name: Counter reset alone is not an export failure
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: otelcol_exporter_send_failed_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 100+0x10 0+0x29
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryCollectorExportFailures
+    exp_alerts: []
+- name: Backend spans without SERVER metrics alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryApplicationServerSpansMissing
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        project: otel-demo
+        namespace: dev
+        telemetry_component: collector
+      exp_annotations:
+        summary: Backend spans arrive but application SERVER metrics have stopped
+        description: The backend OTLP receiver accepts spans, but no SERVER-span call rate is observed for 10 minutes
+          while the application scrape is healthy. Check server instrumentation, sampling and span-metrics processing.
+          Client/internal-only traffic can also cause this; verify that real application requests are expected.
+- name: Failed application scrape does not duplicate missing SERVER alert
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 0+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryApplicationServerSpansMissing
+    exp_alerts: []
+- name: Accepted logs without successful delivery alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+60x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryLogDeliveryStalled
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        project: otel-demo
+        namespace: dev
+        telemetry_component: collector
+      exp_annotations:
+        summary: Collector receives logs but delivery to Loki has stopped
+        description: The Collector receives log records, but has no successful log exports to Loki in the last 10
+          minutes, sustained for 5 minutes. Inspect the Loki endpoint, export errors, retries and queue usage.
+- name: Missing successful export counter cannot hide stalled log delivery
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+60x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryLogDeliveryStalled
+    exp_alerts:
+    - exp_labels:
+        severity: warning
+        project: otel-demo
+        namespace: dev
+        telemetry_component: collector
+      exp_annotations:
+        summary: Collector receives logs but delivery to Loki has stopped
+        description: The Collector receives log records, but has no successful log exports to Loki in the last 10
+          minutes, sustained for 5 minutes. Inspect the Loki endpoint, export errors, retries and queue usage.
+- name: Loki server errors alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: loki_request_duration_seconds_count{telemetry_component="loki",namespace="monitoring",pod="loki-0",status_code="500",route="otlp"}
+    values: 0+60x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryLokiRequestFailures
+    exp_alerts:
+    - exp_labels:
+        namespace: monitoring
+        pod: loki-0
+        telemetry_component: loki
+        route: otlp
+        severity: warning
+        project: otel-demo
+      exp_annotations:
+        summary: Loki returns server errors on otlp
+        description: Loki in monitoring/loki-0 has returned HTTP 5xx responses on otlp for 2 minutes. Check ingestion
+          or query failures, storage and resource saturation.
+- name: Loki discarded records alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: loki_discarded_samples_total{telemetry_component="loki",namespace="monitoring",pod="loki-0",reason="too_far_in_future"}
+    values: 0+60x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryLokiDiscardingLogs
+    exp_alerts:
+    - exp_labels:
+        namespace: monitoring
+        pod: loki-0
+        telemetry_component: loki
+        reason: too_far_in_future
+        severity: warning
+        project: otel-demo
+      exp_annotations:
+        summary: 'Loki discards log records: too_far_in_future'
+        description: Loki discards incoming records because of too_far_in_future. Check timestamp/label validation
+          and ingestion limits. Discarded records do not appear in Grafana log searches.
+- name: Loki chunk flush failures alarm
+  interval: 1m
+  input_series:
+  - series: up{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",service="otel-collector",endpoint="http-internal"}
+    values: 1+0x40
+  - series: up{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 1+0x40
+  - series: up{namespace="dev",service="otel-collector",endpoint="http-metrics"}
+    values: 1+0x40
+  - series: otelcol_process_uptime{telemetry_component="collector",namespace="dev",pod="otel-collector-ci"}
+    values: 0+60x40
+  - series: otelcol_receiver_accepted_spans{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_receiver_accepted_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",receiver="otlp"}
+    values: 0+0x40
+  - series: otelcol_exporter_sent_log_records{telemetry_component="collector",namespace="dev",pod="otel-collector-ci",exporter="otlphttp/loki"}
+    values: 0+0x40
+  - series: otel_demo_span_metrics_calls_total{project="otel-demo",namespace="dev",service_name="recommendation",span_kind="SPAN_KIND_SERVER"}
+    values: 0+0x40
+  - series: loki_ingester_chunks_flush_failures_total{telemetry_component="loki",namespace="monitoring",pod="loki-0"}
+    values: 0+60x40
+  alert_rule_test:
+  - eval_time: 20m
+    alertname: TelemetryLokiFlushFailures
+    exp_alerts:
+    - exp_labels:
+        namespace: monitoring
+        pod: loki-0
+        telemetry_component: loki
+        severity: warning
+        project: otel-demo
+      exp_annotations:
+        summary: Loki cannot flush log chunks to storage
+        description: Loki in monitoring/loki-0 has chunk flush failures for 2 minutes. Check its filesystem/PVC,
+          available disk space and storage permissions. Logs may not reach durable storage.

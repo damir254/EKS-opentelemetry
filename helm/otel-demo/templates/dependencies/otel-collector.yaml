@@ -48,6 +48,8 @@ spec:
               containerPort: 13133
             - name: http-metrics
               containerPort: 8889
+            - name: http-internal
+              containerPort: 8888
           {{- include "otel-demo.probes" .Values.otelCollector | nindent 10 }}
           resources:
             {{- toYaml .Values.otelCollector.resources | nindent 12 }}
@@ -85,4 +87,7 @@ spec:
     - name: http-metrics
       port: 8889
       targetPort: http-metrics
+    - name: http-internal
+      port: 8888
+      targetPort: http-internal
 {{- end }}

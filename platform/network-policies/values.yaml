@@ -232,7 +232,7 @@ workloads:
   # Demo policies own these workloads; this chart adds Service DNS allowances only.
   collector:
     services:
-      otel-collector: {"8889": [8889]}
+      otel-collector: {"8888": [8888], "8889": [8889]}
     namespace: dev
     selector: {app.kubernetes.io/name: otel-demo, app.kubernetes.io/instance: otel-demo, app.kubernetes.io/component: otel-collector}
     managed: false
@@ -259,7 +259,7 @@ connections:
   - {from: prometheus, to: loki, ports: [3100]}
   - {from: prometheus, to: prometheus-operator, ports: [10250]}
   - {from: prometheus, to: kube-state-metrics, ports: [8080, 8081]}
-  - {from: prometheus, to: collector, ports: [8889]}
+  - {from: prometheus, to: collector, ports: [8888, 8889]}
   - {from: prometheus, to: keycloak, ports: [9000]}
   - {from: prometheus, to: argocd-controller, ports: [8082]}
   - {from: prometheus, to: argocd-server, ports: [8083]}

@@ -1,0 +1,206 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: telemetry-pipeline
+  namespace: monitoring
+  labels:
+    release: monitoring
+    app.kubernetes.io/part-of: otel-demo
+spec:
+  groups:
+    - name: telemetry-pipeline
+      rules:
+        - alert: TelemetryComponentScrapeUnavailable
+          expr: |
+            up{telemetry_component=~"collector|loki"} == 0
+            or absent(up{telemetry_component="collector", namespace="dev"})
+            or absent(up{telemetry_component="loki", namespace="monitoring"})
+          for: 3m
+          labels:
+            severity: critical
+            project: otel-demo
+          annotations:
+            summary: 'Cannot scrape {{ $labels.telemetry_component }} internal metrics'
+            description: >-
+              Prometheus has failed to scrape, or no longer discovers, the
+              {{ $labels.telemetry_component }} metrics target in {{ $labels.namespace }}
+              for 3 minutes. Check the ServiceMonitor, Service endpoints, pod
+              readiness and network policies. Pipeline health is unknown.
+        - alert: TelemetryCollectorApplicationScrapeUnavailable
+          expr: |
+            up{namespace="dev", service="otel-collector", endpoint="http-metrics"} == 0
+            or absent(up{namespace="dev", service="otel-collector", endpoint="http-metrics"})
+          for: 3m
+          labels:
+            severity: critical
+            project: otel-demo
+            telemetry_component: collector
+          annotations:
+            summary: 'Collector application metrics cannot be scraped'
+            description: >-
+              The Collector's application metrics endpoint on 8889 has failed
+              scrapes or disappeared for 3 minutes. RED and native application
+              metrics are unavailable even if the internal endpoint is healthy.
+        - alert: TelemetryCollectorInternalMetricsMissing
+          expr: |
+            absent_over_time(otelcol_process_uptime{telemetry_component="collector", namespace="dev"}[5m])
+            and on () (max(up{telemetry_component="collector", namespace="dev"}) == 1)
+          for: 3m
+          labels:
+            severity: warning
+            project: otel-demo
+            telemetry_component: collector
+          annotations:
+            summary: 'Collector scrape succeeds but expected internal metrics are missing'
+            description: >-
+              The internal scrape is reachable, but otelcol_process_uptime has
+              been absent for at least 5 minutes. Check internal telemetry
+              configuration, metric relabeling and Collector version changes.
+        - alert: TelemetryCollectorRefusingData
+          expr: |
+            sum by (namespace, pod, receiver) (
+              rate({telemetry_component="collector", __name__=~"otelcol_receiver_refused_(spans|metric_points|log_records)"}[5m])
+            ) > 0
+          for: 2m
+          labels:
+            severity: warning
+            project: otel-demo
+            telemetry_component: collector
+          annotations:
+            summary: 'Collector is refusing telemetry from {{ $labels.receiver }}'
+            description: >-
+              Receiver {{ $labels.receiver }} in {{ $labels.namespace }}/{{ $labels.pod }}
+              has refused telemetry for 2 minutes. Check memory-limiter pressure,
+              processor errors and application SDK export errors. SDK retries
+              determine whether refused data is ultimately lost.
+        - alert: TelemetryCollectorExportFailures
+          expr: |
+            sum by (namespace, pod, exporter) (
+              rate({telemetry_component="collector", __name__=~"otelcol_exporter_send_failed_(spans|metric_points|log_records)"}[5m])
+            ) > 0
+          for: 2m
+          labels:
+            severity: warning
+            project: otel-demo
+            telemetry_component: collector
+          annotations:
+            summary: 'Collector exporter {{ $labels.exporter }} is failing'
+            description: >-
+              Exporter {{ $labels.exporter }} in {{ $labels.namespace }}/{{ $labels.pod }}
+              has export failures for 2 minutes. Check the receiving backend,
+              network policies and Collector logs. Failures can be retried and
+              do not alone establish data loss.
+        - alert: TelemetryCollectorQueueDroppingData
+          expr: |
+            sum by (namespace, pod, exporter) (
+              rate({telemetry_component="collector", __name__=~"otelcol_exporter_enqueue_failed_(spans|metric_points|log_records)"}[5m])
+            ) > 0
+          for: 1m
+          labels:
+            severity: critical
+            project: otel-demo
+            telemetry_component: collector
+          annotations:
+            summary: 'Collector exporter {{ $labels.exporter }} cannot enqueue telemetry'
+            description: >-
+              Telemetry cannot enter the sending queue for {{ $labels.exporter }}
+              in {{ $labels.namespace }}/{{ $labels.pod }}. Check queue capacity,
+              in-flight retries and backend availability. Data may be lost.
+        - alert: TelemetryCollectorQueueNearCapacity
+          expr: |
+            otelcol_exporter_queue_size{telemetry_component="collector"}
+            / clamp_min(otelcol_exporter_queue_capacity{telemetry_component="collector"}, 1) > 0.8
+          for: 5m
+          labels:
+            severity: warning
+            project: otel-demo
+            telemetry_component: collector
+          annotations:
+            summary: 'Collector exporter {{ $labels.exporter }} queue exceeds 80%'
+            description: >-
+              The sending queue for {{ $labels.exporter }} has exceeded 80% of
+              capacity for 5 minutes. Inspect backend throughput and in-flight
+              retries before raising queue size; queues consume memory.
+        - alert: TelemetryApplicationServerSpansMissing
+          expr: |
+            (sum(rate(otelcol_receiver_accepted_spans{telemetry_component="collector", receiver="otlp"}[5m])) > 0)
+            and on () ((sum(rate(otel_demo_span_metrics_calls_total{project="otel-demo", namespace="dev", span_kind="SPAN_KIND_SERVER"}[5m])) or vector(0)) == 0)
+            and on () (max(up{namespace="dev", service="otel-collector", endpoint="http-metrics"}) == 1)
+          for: 10m
+          labels:
+            severity: warning
+            project: otel-demo
+            namespace: dev
+            telemetry_component: collector
+          annotations:
+            summary: 'Backend spans arrive but application SERVER metrics have stopped'
+            description: >-
+              The backend OTLP receiver accepts spans, but no SERVER-span call
+              rate is observed for 10 minutes while the application scrape is
+              healthy. Check server instrumentation, sampling and span-metrics
+              processing. Client/internal-only traffic can also cause this;
+              verify that real application requests are expected.
+        - alert: TelemetryLogDeliveryStalled
+          expr: |
+            (sum(increase(otelcol_receiver_accepted_log_records{telemetry_component="collector"}[10m])) > 0)
+            and on () ((sum(increase(otelcol_exporter_sent_log_records{telemetry_component="collector", exporter="otlphttp/loki"}[10m])) or vector(0)) == 0)
+          for: 5m
+          labels:
+            severity: warning
+            project: otel-demo
+            namespace: dev
+            telemetry_component: collector
+          annotations:
+            summary: 'Collector receives logs but delivery to Loki has stopped'
+            description: >-
+              The Collector receives log records, but has no successful log
+              exports to Loki in the last 10 minutes, sustained for 5 minutes.
+              Inspect the Loki endpoint, export errors, retries and queue usage.
+        - alert: TelemetryLokiRequestFailures
+          expr: |
+            sum by (namespace, pod, route) (
+              rate(loki_request_duration_seconds_count{telemetry_component="loki", status_code=~"5.."}[5m])
+            ) > 0
+          for: 2m
+          labels:
+            severity: warning
+            project: otel-demo
+            telemetry_component: loki
+          annotations:
+            summary: 'Loki returns server errors on {{ $labels.route }}'
+            description: >-
+              Loki in {{ $labels.namespace }}/{{ $labels.pod }} has returned HTTP
+              5xx responses on {{ $labels.route }} for 2 minutes. Check ingestion
+              or query failures, storage and resource saturation.
+        - alert: TelemetryLokiDiscardingLogs
+          expr: |
+            sum by (namespace, pod, reason) (
+              rate(loki_discarded_samples_total{telemetry_component="loki"}[5m])
+            ) > 0
+          for: 2m
+          labels:
+            severity: warning
+            project: otel-demo
+            telemetry_component: loki
+          annotations:
+            summary: 'Loki discards log records: {{ $labels.reason }}'
+            description: >-
+              Loki discards incoming records because of {{ $labels.reason }}.
+              Check timestamp/label validation and ingestion limits. Discarded
+              records do not appear in Grafana log searches.
+        - alert: TelemetryLokiFlushFailures
+          expr: |
+            sum by (namespace, pod) (
+              rate(loki_ingester_chunks_flush_failures_total{telemetry_component="loki"}[5m])
+            ) > 0
+          for: 2m
+          labels:
+            severity: warning
+            project: otel-demo
+            telemetry_component: loki
+          annotations:
+            summary: 'Loki cannot flush log chunks to storage'
+            description: >-
+              Loki in {{ $labels.namespace }}/{{ $labels.pod }} has chunk flush
+              failures for 2 minutes. Check its filesystem/PVC, available disk
+              space and storage permissions. Logs may not reach durable storage.

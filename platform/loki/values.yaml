@@ -89,3 +89,16 @@ ruler:
 sidecar:
   rules:
     enabled: false
+
+# Reuse the existing Prometheus Operator; pipeline rules/dashboard live in
+# platform/monitoring/resources rather than Loki's distributed-mode mixin.
+monitoring:
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: monitoring
+    interval: 30s
+    scrapeTimeout: 10s
+    relabelings:
+      - targetLabel: telemetry_component
+        replacement: loki

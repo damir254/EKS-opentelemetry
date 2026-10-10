@@ -196,7 +196,12 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
       ports:
+        - protocol: TCP
+          port: 8888
         - protocol: TCP
           port: 8889
 {{- end }}

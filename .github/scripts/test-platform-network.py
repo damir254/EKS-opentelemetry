@@ -87,7 +87,7 @@ def main():
     prefix = "network-test-" + uuid.uuid4().hex[:8]
     namespaces = {name: f"{prefix}-{suffix}" for name, suffix in (
         ("monitoring", "mon"), ("argocd", "argo"), ("external-secrets", "eso"), ("dev", "demo"), ("outsider", "other"))}
-    roles = {"grafana": [3000, 9094], "loki": [3100], "prometheus": [9090], "collector": [8889],
+    roles = {"grafana": [3000, 9094], "loki": [3100], "prometheus": [9090], "collector": [8888, 8889],
              "argocd-repo": [8081], "argocd-server": [8080], "argocd-redis": [6379, 26379],
              "argocd-haproxy": [6379], "external-secrets": [9999]}
     selected = {"platform-" + name for name in roles} | {"platform-default-deny"}
@@ -161,6 +161,10 @@ def main():
             ("grafana", internal("loki", 3100), "allow"),
             ("grafana", internal("prometheus", 9090), "allow"),
             ("collector", internal("loki", 3100), "allow"),
+            ("prometheus", internal("collector", 8888), "allow"),
+            ("prometheus", internal("collector", 8889), "allow"),
+            ("grafana", internal("collector", 8888), "deny"),
+            ("outside-rogue", internal("collector", 8888), "deny"),
             ("grafana", "https://auth.damircloud.com/realms/platform/.well-known/openid-configuration", "allow"),
             ("outside-rogue", internal("loki", 3100), "deny"),
             ("inside-rogue", internal("loki", 3100), "deny"),

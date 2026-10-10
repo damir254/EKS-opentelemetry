@@ -11,6 +11,8 @@ validation. Chart-managed images follow their pinned chart versions.
 Native telemetry tests also verify that pod identities keep replica counters and
 histograms separate, preserve Kubernetes metadata and retain service RED totals.
 See [application telemetry identity](telemetry-identity.md).
+Pipeline checks also validate Prometheus alert behavior and dashboard queries,
+then inject Collector export/queue failures and verify recovery without a cluster.
 Grafana validation requires AWS-backed admin credentials for both the server and
 reload sidecars; recovery tests check password handling and sync prerequisites.
 Access guards require one HTTPS ALB class, its certificate list, separate host
