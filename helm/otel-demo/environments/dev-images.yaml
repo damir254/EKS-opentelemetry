@@ -3,7 +3,7 @@ services:
   recommendation:
     image:
       repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/recommendation
-      tag: "release-ac871241564095d667797851383c1179cfdfabb5"
+      tag: "release-c813957bb5acc14f70da308cfb7fe30456672a5d"
   product-catalog:
     image:
       repository: 060941289716.dkr.ecr.eu-central-1.amazonaws.com/product-catalog
