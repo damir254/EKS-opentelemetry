@@ -1,3 +1,4 @@
+from copy import deepcopy
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -96,6 +97,53 @@ class PlatformNetworkTests(unittest.TestCase):
             expected = {"Ingress", "Egress"} if workload.get("managed", True) else {"Egress"}
             self.assertEqual(set(owned[0]["spec"]["policyTypes"]), expected)
         self.assertFalse(any(p["spec"]["podSelector"] == {} and p["metadata"]["namespace"] in ("dev", "kube-system") for p in self.policies.items))
+
+    def test_namespace_allowlist_and_default_deny_waves_are_separate(self):
+        model.validate_bootstrap_sequence(self.resources)
+        allowlists = [p for p in self.policies.items if p["metadata"]["name"] != "platform-default-deny"]
+        self.assertEqual({p["kind"] for p in allowlists}, {"NetworkPolicy", "ApplicationNetworkPolicy"})
+
+    def test_controller_keeps_api_and_dns_access_during_installation(self):
+        # Argo CD sorts by wave, then applies standard resources before custom ones.
+        # The controller is already running when its policy Application is installed.
+        def order(policy):
+            wave = int(policy["metadata"].get("annotations", {}).get("argocd.argoproj.io/sync-wave", "0"))
+            return wave, policy["kind"] == "ApplicationNetworkPolicy", policy["metadata"]["name"]
+
+        def disconnected(resources):
+            installed = []
+            for policy in sorted(model.Policies(resources).items, key=order):
+                installed.append(policy)
+                policies = model.Policies(installed)
+                controller = self.pod("argocd-controller")
+                if not (policies.permits(controller, {"ip": "172.20.0.1"}, "egress", 443)
+                        and all(policies.permits(controller, {"ip": "172.20.0.10"}, "egress", 53, protocol)
+                                for protocol in ("TCP", "UDP"))):
+                    return policy["metadata"]["name"]
+            return None
+
+        self.assertIsNone(disconnected(self.resources))
+        original = deepcopy(self.resources)
+        for policy in model.Policies(original).items:
+            policy["metadata"].pop("annotations", None)
+        self.assertEqual(disconnected(original), "platform-default-deny")
+
+    def test_unsafe_bootstrap_order_fails_manifest_validation(self):
+        for failure in ("missing-allow-wave", "early-deny", "late-namespace"):
+            with self.subTest(failure=failure):
+                resources = deepcopy(self.resources)
+                if failure == "late-namespace":
+                    item = next(r for r in resources if r["kind"] == "Namespace" and r["metadata"]["name"] == "argocd")
+                    item["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"] = "-1"
+                else:
+                    name = "platform-argocd-controller" if failure == "missing-allow-wave" else "platform-default-deny"
+                    item = next(r for r in resources if r["metadata"]["name"] == name and r["metadata"].get("namespace") == "argocd")
+                    if failure == "missing-allow-wave":
+                        item["metadata"]["annotations"].pop("argocd.argoproj.io/sync-wave")
+                    else:
+                        item["metadata"]["annotations"]["argocd.argoproj.io/sync-wave"] = "-1"
+                with self.assertRaises(ValueError):
+                    model.validate(resources, self.config)
 
     def test_keycloak_has_one_owner_and_restricted_ingress(self):
         keycloak = self.pod("keycloak")

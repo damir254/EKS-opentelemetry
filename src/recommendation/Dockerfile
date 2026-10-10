@@ -59,4 +59,4 @@ COPY ./src/recommendation/demo_pb2.py ./src/recommendation/demo_pb2_grpc.py ./
 
 USER app
 
-ENTRYPOINT ["python", "recommendation_server.py"]
+ENTRYPOINT ["opentelemetry-instrument", "python", "recommendation_server.py"]

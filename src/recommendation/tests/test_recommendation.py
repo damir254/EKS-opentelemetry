@@ -3,6 +3,7 @@
 import logging
 from unittest.mock import Mock
 
+import grpc
 import pytest
 from opentelemetry import trace
 
@@ -66,6 +67,19 @@ def test_catalog_errors_propagate(catalog):
     catalog.ListProducts.side_effect = RuntimeError("catalog unavailable")
     with pytest.raises(RuntimeError, match="catalog unavailable"):
         server.get_product_list([])
+
+
+def test_handler_returns_internal_status_for_unexpected_errors(catalog):
+    catalog.ListProducts.side_effect = ValueError("invalid catalog response")
+    context = Mock()
+    context.abort.side_effect = RuntimeError("RPC aborted")
+    with pytest.raises(RuntimeError, match="RPC aborted"):
+        server.RecommendationService().ListRecommendations(
+            demo_pb2.ListRecommendationsRequest(), context,
+        )
+    context.abort.assert_called_once_with(
+        grpc.StatusCode.INTERNAL, "Failed to generate recommendations",
+    )
 
 
 def test_cache_failure_flag_reuses_cached_ids_on_a_hit(catalog, monkeypatch):

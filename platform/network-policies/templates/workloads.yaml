@@ -35,6 +35,9 @@ kind: NetworkPolicy
 metadata:
   name: platform-{{ $name }}
   namespace: {{ $workload.namespace }}
+  annotations:
+    # Install every allowlist before namespace isolation can block Argo CD itself.
+    argocd.argoproj.io/sync-wave: "-1"
   labels: {app.kubernetes.io/part-of: platform-network-policies}
 spec:
   podSelector:

@@ -89,6 +89,49 @@ def validate_images(resources):
                 raise ValueError(f'{resource["metadata"]["name"]}/{container["name"]}: floating image {image}')
 
 
+def validate_demo_telemetry_identity(resources):
+    """All application SDKs need distinct native metric streams per pod."""
+    fields = {
+        "K8S_POD_UID": "metadata.uid", "K8S_POD_NAME": "metadata.name",
+        "K8S_NAMESPACE_NAME": "metadata.namespace", "K8S_NODE_NAME": "spec.nodeName",
+    }
+    attributes = {
+        "service.instance.id": "$(K8S_POD_UID)", "k8s.pod.uid": "$(K8S_POD_UID)",
+        "k8s.pod.name": "$(K8S_POD_NAME)", "k8s.namespace.name": "$(K8S_NAMESPACE_NAME)",
+        "k8s.node.name": "$(K8S_NODE_NAME)",
+    }
+    services = set(documents(ROOT / "helm/otel-demo/values.yaml")[0]["services"]) | {"flagd"}
+    for resource in resources:
+        if resource.get("kind") not in ("Deployment", "Rollout"):
+            continue
+        pod = resource.get("spec", {}).get("template", {})
+        component = pod.get("metadata", {}).get("labels", {}).get("app.kubernetes.io/component")
+        if component not in services:
+            continue
+        for container in pod["spec"]["containers"]:
+            if container["name"] != component:
+                continue
+            name = f'{resource["metadata"]["name"]}/{container["name"]}'
+            env = container.get("env", [])
+            entries = {entry["name"]: entry for entry in env}
+            positions = {entry["name"]: index for index, entry in enumerate(env)}
+            value = entries.get("OTEL_RESOURCE_ATTRIBUTES", {}).get("value", "")
+            pairs = [attribute.strip().split("=", 1) for attribute in value.split(",") if attribute.strip()]
+            if any(len(pair) != 2 for pair in pairs):
+                raise ValueError(f"{name}: invalid resource attributes")
+            values = dict(pairs)
+            if len(values) != len(pairs):
+                raise ValueError(f"{name}: duplicate resource attribute keys")
+            for key, expected in attributes.items():
+                if values.get(key) != expected:
+                    raise ValueError(f"{name}: telemetry requires {key}={expected}")
+            for key, field in fields.items():
+                if entries.get(key, {}).get("valueFrom", {}).get("fieldRef", {}).get("fieldPath") != field:
+                    raise ValueError(f"{name}: {key} must use Downward API field {field}")
+                if positions[key] > positions["OTEL_RESOURCE_ATTRIBUTES"]:
+                    raise ValueError(f"{name}: {key} must precede OTEL_RESOURCE_ATTRIBUTES for expansion")
+
+
 def validate_platform_network(resources):
     spec = importlib.util.spec_from_file_location("network_model", ROOT / ".github/scripts/network-policy-model.py")
     model = importlib.util.module_from_spec(spec)
@@ -482,6 +525,7 @@ def validate(work, argocd_version, image_inventory=None):
                     for manifest in sorted(directory.glob(include)):
                         resources.extend(documents(manifest))
 
+    validate_demo_telemetry_identity(resources)
     validate_demo_storage(resources)
     validate_platform_network(resources)
     validate_grafana_admin(resources)

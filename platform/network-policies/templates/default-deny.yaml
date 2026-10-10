@@ -6,6 +6,9 @@ kind: NetworkPolicy
 metadata:
   name: platform-default-deny
   namespace: {{ $name }}
+  annotations:
+    # Workload allowlists are installed in wave -1, including Argo CD's API/DNS access.
+    argocd.argoproj.io/sync-wave: "0"
   labels: {app.kubernetes.io/part-of: platform-network-policies}
 spec:
   podSelector: {}

@@ -51,8 +51,11 @@ spec:
           command: ["/flagd-build"]
           args: ["start", "--port", "8013", "--ofrep-port", "8016", "--uri", "file:/etc/flagd/demo.flagd.json"]
           env:
+            {{- include "otel-demo.podIdentityEnv" . | nindent 12 }}
             - name: OTEL_SERVICE_NAME
               value: flagd
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: {{ include "otel-demo.podResourceAttributesValue" . | quote }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://otel-collector:4318
             - name: OTEL_EXPORTER_OTLP_PROTOCOL

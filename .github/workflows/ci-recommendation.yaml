@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "src/recommendation/**"
+      - "helm/otel-demo/services/recommendation.yaml"
       - ".dockerignore"
       - ".github/workflows/ci-recommendation.yaml"
       - ".github/workflows/reusable-build-push.yaml"
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - "src/recommendation/**"
+      - "helm/otel-demo/services/recommendation.yaml"
       - ".dockerignore"
       - ".github/workflows/ci-recommendation.yaml"
       - ".github/workflows/reusable-build-push.yaml"
@@ -52,7 +54,7 @@ jobs:
           python -m pip install --require-hashes -r requirements.txt
           python -m pip install -r requirements-test.txt
 
-      - name: Run unit tests
+      - name: Run service and telemetry startup tests
         run: pytest
 
   # Separate callers keep id-token unavailable to every PR job, including

@@ -53,6 +53,11 @@ services:
         value: "8013"
       OTEL_EXPORTER_OTLP_ENDPOINT:
         value: "http://otel-collector:4317"
+      # Readiness probes must not contribute to request rates or latency.
+      OTEL_PYTHON_GRPC_EXCLUDED_SERVICES:
+        value: "grpc.health.v1.Health"
+      OTEL_PYTHON_LOG_AUTO_INSTRUMENTATION:
+        value: "true"
       OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE:
         value: delta
       OTEL_RESOURCE_ATTRIBUTES:

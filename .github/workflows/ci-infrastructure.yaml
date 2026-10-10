@@ -102,5 +102,8 @@ jobs:
       - name: Test browser telemetry with pinned Envoy and Collector
         run: python .github/scripts/test-browser-telemetry.py
 
+      - name: Test native metric identity across replicas with pinned Collector
+        run: python .github/scripts/test-native-metrics.py
+
       - name: Test demo dependency persistence across container replacement
         run: python .github/scripts/test-demo-storage.py

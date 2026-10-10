@@ -70,7 +70,34 @@ def endpoint(workload):
     return {"namespace": workload["namespace"], "labels": workload["selector"], "ip": "10.0.10.200"}
 
 
+def validate_bootstrap_sequence(resources):
+    """Keep Argo CD connected while it installs its own namespace isolation."""
+    owned = [item for item in resources
+             if item.get("kind") in ("NetworkPolicy", "ApplicationNetworkPolicy")
+             and item["metadata"].get("labels", {}).get("app.kubernetes.io/part-of")
+             == "platform-network-policies"]
+    if not owned:
+        raise ValueError("Platform network policies are missing")
+
+    def wave(item):
+        return int(item["metadata"].get("annotations", {}).get("argocd.argoproj.io/sync-wave", "0"))
+
+    namespaces = {item["metadata"]["name"]: wave(item) for item in resources
+                  if item.get("kind") == "Namespace"}
+    allowlists = [item for item in owned if item["metadata"]["name"] != "platform-default-deny"]
+    denies = [item for item in owned if item["metadata"]["name"] == "platform-default-deny"]
+    if not allowlists or not denies:
+        raise ValueError("Platform bootstrap requires workload allowlists and default-deny policies")
+    for policy in owned:
+        namespace = policy["metadata"]["namespace"]
+        if namespace in namespaces and namespaces[namespace] >= wave(policy):
+            raise ValueError(f"{namespace}: namespace must precede platform network policies")
+    if max(map(wave, allowlists)) >= min(map(wave, denies)):
+        raise ValueError("All platform workload allowlists must precede every default-deny policy")
+
+
 def validate(resources, config):
+    validate_bootstrap_sequence(resources)
     policies = Policies(resources)
     isolated = {name for name, settings in config["namespaces"].items() if settings["defaultDeny"]}
     for namespace in isolated:

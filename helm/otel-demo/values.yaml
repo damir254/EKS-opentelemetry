@@ -2,6 +2,28 @@
 # See ../../README.md; Helm does not automatically load other values files.
 
 defaultEnv:
+  # These names sort before OTEL_RESOURCE_ATTRIBUTES for Kubernetes expansion.
+  # The shared workload template appends this identity after service overrides.
+  K8S_POD_UID:
+    valueFrom:
+      fieldRef:
+        apiVersion: v1
+        fieldPath: metadata.uid
+  K8S_POD_NAME:
+    valueFrom:
+      fieldRef:
+        apiVersion: v1
+        fieldPath: metadata.name
+  K8S_NAMESPACE_NAME:
+    valueFrom:
+      fieldRef:
+        apiVersion: v1
+        fieldPath: metadata.namespace
+  K8S_NODE_NAME:
+    valueFrom:
+      fieldRef:
+        apiVersion: v1
+        fieldPath: spec.nodeName
   OTEL_SERVICE_NAME:
     valueFrom:
       fieldRef:

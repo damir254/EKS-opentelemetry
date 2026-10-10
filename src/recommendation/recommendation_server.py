@@ -12,13 +12,6 @@ from concurrent import futures
 # Pip
 import grpc
 from opentelemetry import trace, metrics
-from opentelemetry._logs import set_logger_provider
-from opentelemetry.exporter.otlp.proto.grpc._log_exporter import (
-    OTLPLogExporter,
-)
-from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-from opentelemetry.sdk.resources import Resource
 
 from openfeature import api
 from openfeature.contrib.provider.flagd import FlagdProvider
@@ -41,7 +34,16 @@ first_run = True
 
 class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
     def ListRecommendations(self, request, context):
-        prod_list = get_product_list(request.product_ids)
+        try:
+            prod_list = get_product_list(request.product_ids)
+        except grpc.RpcError as error:
+            logger.warning("Product Catalog request failed: %s", error.code().name)
+            # Setting the outgoing RPC status also marks the SERVER span as an
+            # error; recording an upstream exception alone does not do this.
+            context.abort(error.code(), "Product Catalog request failed")
+        except Exception:
+            logger.exception("Failed to generate recommendations")
+            context.abort(grpc.StatusCode.INTERNAL, "Failed to generate recommendations")
         span = trace.get_current_span()
         span.set_attribute("demo.product.recommended.count", len(prod_list))
         logger.info(f"Receive ListRecommendations for product ids:{prod_list}")
@@ -134,23 +136,15 @@ if __name__ == "__main__":
     api.set_provider(FlagdProvider(host=os.environ.get('FLAGD_HOST', 'flagd'), port=os.environ.get('FLAGD_PORT', 8013)))
     api.add_hooks([TracingHook()])
 
-    # Initialize Traces and Metrics
+    # opentelemetry-instrument initializes the SDKs and gRPC instrumentation
+    # before this module runs. Reuse those providers for custom telemetry.
     tracer = trace.get_tracer_provider().get_tracer(service_name)
     meter = metrics.get_meter_provider().get_meter(service_name)
     rec_svc_metrics = init_metrics(meter)
 
-    # Initialize Logs
-    logger_provider = LoggerProvider(
-        resource = Resource.create({}),
-    )
-    set_logger_provider(logger_provider)
-    log_exporter = OTLPLogExporter(insecure=True)
-    logger_provider.add_log_record_processor(BatchLogRecordProcessor(log_exporter))
-    handler = LoggingHandler(level=logging.NOTSET, logger_provider=logger_provider)
-
-    # Attach OTLP handler to logger
+    # The logging instrumentor attaches the OTLP handler to the root logger.
     logger = logging.getLogger('main')
-    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
     catalog_addr = must_map_env('PRODUCT_CATALOG_ADDR')
     pc_channel = grpc.insecure_channel(catalog_addr)

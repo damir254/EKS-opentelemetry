@@ -178,29 +178,40 @@ spec:
           {{- $defaultEnv := deepCopy (default (dict) .root.Values.defaultEnv) }}
           {{- $serviceEnv := default (dict) .service.env }}
           {{- $mergedEnv := mergeOverwrite $defaultEnv $serviceEnv }}
-          {{- if $rollout.enabled }}
-          {{/* Merge existing resource attributes, updating only the version/hash. */}}
-          {{- $attributes := list }}
+          {{/* Merge service attributes, then enforce a distinct identity per pod. */}}
+          {{- $resourceAttributes := dict }}
           {{- range $envName := list "OTEL_RESOURCE_ATTRIBUTES" "OTEL_RESOURCE_ATTRIBUTES_EXTRA" }}
           {{- $env := get $mergedEnv $envName | default dict }}
           {{- $value := $env }}
           {{- if kindIs "map" $env }}
           {{- if hasKey $env "valueFrom" }}
-          {{- fail (printf "%s: rollout resource attributes require a literal %s value" $.name $envName) }}
+          {{- fail (printf "%s: resource attributes require a literal %s value" $.name $envName) }}
           {{- end }}
           {{- $value = $env.value | default "" }}
           {{- end }}
           {{- range splitList "," $value }}
           {{- $attribute := trim . }}
-          {{- if and $attribute (not (regexMatch "^(service\\.version|rollout\\.pod_template_hash)=" $attribute)) }}
-          {{- $attributes = append $attributes $attribute }}
+          {{- if $attribute }}
+          {{- $parts := regexSplit "=" $attribute 2 }}
+          {{- if ne (len $parts) 2 }}
+          {{- fail (printf "%s: invalid resource attribute %s (expected key=value)" $.name $attribute) }}
+          {{- end }}
+          {{- $_ := set $resourceAttributes (trim (index $parts 0)) (index $parts 1) }}
           {{- end }}
           {{- end }}
           {{- end }}
-          {{- $attributes = append $attributes "rollout.pod_template_hash=$(ROLLOUT_POD_TEMPLATE_HASH)" }}
-          {{- $attributes = append $attributes (printf "service.version=%s" .service.image.tag) }}
+          {{- $_ := mergeOverwrite $resourceAttributes (include "otel-demo.podResourceAttributes" .root | fromYaml) }}
+          {{- if $rollout.enabled }}
+          {{- $_ := set $resourceAttributes "rollout.pod_template_hash" "$(ROLLOUT_POD_TEMPLATE_HASH)" }}
+          {{- $_ := set $resourceAttributes "service.version" .service.image.tag }}
+          {{- end }}
+          {{- $attributes := list }}
+          {{- range $key, $value := $resourceAttributes }}
+          {{- $attributes = append $attributes (printf "%s=%s" $key $value) }}
+          {{- end }}
           {{- $_ := set $mergedEnv "OTEL_RESOURCE_ATTRIBUTES" (dict "value" (join "," $attributes)) }}
-          {{- end }}
+          {{/* EXTRA is a chart input; SDKs consume the merged standard variable. */}}
+          {{- $_ := unset $mergedEnv "OTEL_RESOURCE_ATTRIBUTES_EXTRA" }}
 
           env:
             {{- if $rollout.enabled }}
