@@ -50,7 +50,7 @@ for (const [type, number] of [['visa', '4111111111111111'], ['mastercard', '5555
     assert.deepEqual(counter.add.mock.calls[0].arguments, [1, { 'demo.payment.currency': 'USD' }]);
     assert.equal(logger.info.mock.calls[0].arguments[0].cardType, type);
     assert.equal(logger.info.mock.calls[0].arguments[0].lastFourDigits, number.slice(-4));
-    assert.equal(span.end.mock.callCount(), 2);
+    assert.equal(span.end.mock.callCount(), 1);
     assert.equal(span.recordException.mock.callCount(), 0);
   });
 }
