@@ -1,0 +1,38 @@
+name: Exercise Payment CI
+
+
+on:
+    pull_request:
+        branches:
+            - main
+        paths:
+            - src/payment/**
+            - pb/demo.proto
+            - .dockerignore
+            - .github/scripts/validate-payment.sh
+            - .github/workflows/exercise-payment-ci.yaml
+
+
+permissions:
+    contents: read
+
+jobs:
+    exercise-payment:
+        name: Exercise Payment Service
+        runs-on: ubuntu-24.04
+        timeout-minutes: 15
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v7
+              
+            - name: Set up Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version-file: src/payment/.node-version
+                  cache: npm
+                  cache-dependency-path: src/payment/package-lock.json
+            - name: Run validation script
+              run: .github/scripts/validate-payment.sh
+            - name: Build Docker image
+              run: docker build -t payment-service:latest -f src/payment/Dockerfile
+              
