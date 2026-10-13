@@ -32,7 +32,7 @@ jobs:
                   cache: npm
                   cache-dependency-path: src/payment/package-lock.json
             - name: Run validation script
-              run: .github/scripts/validate-payment.sh
+              run: bash .github/scripts/validate-payment.sh
             - name: Build Docker image
               run: docker build -t payment-service:latest -f src/payment/Dockerfile
               
