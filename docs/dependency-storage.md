@@ -1,48 +1,59 @@
-# Demo dependency storage
+# Storage and environment lifecycle
 
-PostgreSQL (`astronomy-db`), Kafka and Valkey each run one StatefulSet replica with
-an encrypted gp3 EBS PVC: 5 GiB, 10 GiB and 1 GiB respectively. Existing Service
-names and application connection settings stay the same.
+The project separates disposable demo data from platform state.
 
-- PostgreSQL stores its database/WAL in a `pgdata` subdirectory and initializes
-  the demo schemas/products only on an empty volume.
-- Kafka stores broker logs, consumer offsets and KRaft metadata on its PVC.
-- Valkey persists carts through AOF with `appendfsync everysec`; an abrupt failure
-  can lose approximately the latest second of writes.
-- `do-not-disrupt` is removed. Consolidation can evict these pods; replacement
-  pods reattach their volumes in the same availability zone. Expect an outage
-  while scheduling and volume attachment complete. There is no replication or
-  singleton PDB blocking eviction.
+| Component | Storage | Lifecycle |
+| --- | --- | --- |
+| Demo PostgreSQL | One replica, 5 GiB gp3 EBS | Survives pod replacement; deleted with its StatefulSet. |
+| Kafka | One replica, 10 GiB gp3 EBS | Persists messages and broker metadata; deleted with its StatefulSet. |
+| Valkey | One replica, 1 GiB gp3 EBS | Persists carts using AOF; deleted with its StatefulSet. |
+| Prometheus / Alertmanager | EBS PVCs per replica | Configured to retain PVCs when removed or scaled down. |
+| Loki | One replica with an EBS PVC | Configured to retain its PVC when removed or scaled down. |
+| Grafana / Keycloak | Separate databases on shared RDS PostgreSQL | Database contents can be recovered from retained RDS snapshots. |
 
-## First deployment
+The demo dependencies have persistence, but no application-level replication.
+A node replacement can interrupt them while EBS reattaches in the same availability
+zone. PostgreSQL initializes schemas/products on an empty volume; Kafka keeps its
+logs and metadata on the volume; Valkey uses AOF with one-second synchronization.
 
-Commit/push the changes and let Argo CD sync `otel-demo`. This migration creates
-fresh databases, Kafka state and carts; it does not copy the old ephemeral data.
-The Services select only new StatefulSet pods, and Argo CD's `PruneLast` removes
-the old Deployments after the replacement workloads are healthy. A brief outage
-and errors from existing connections to old pods are expected.
+## Credentials and database recovery
+
+Grafana and Keycloak credentials are stored in separate Secrets Manager bundles.
+Bootstrap Jobs configure database access and reuse existing credentials when those
+bundles exist. External Secrets supplies the corresponding Kubernetes Secrets.
+
+Deleting RDS alone can leave the application secrets available for recreation.
+A full Terraform destroy also includes those Secrets Manager resources. The
+configured recovery window determines whether deletion is recoverable; setting
+`secret_recovery_window_in_days = 0` requests deletion without a recovery window.
+
+Keeping a credential bundle does not preserve database contents. To retain users,
+dashboards and identity settings across recreation, preserve both the RDS data
+and the application secrets, including Grafana's encryption key. The RDS
+administrator secret is managed separately by AWS and is deleted with the instance.
+
+RDS is configured to take a final snapshot on deletion. The recovery helper can
+also create a verified manual snapshot beforehand:
 
 ```sh
-kubectl get statefulsets,pvc -n dev
-kubectl rollout status statefulset/astronomy-db -n dev
-kubectl rollout status statefulset/kafka -n dev
-kubectl rollout status statefulset/valkey-cart -n dev
-kubectl get deployments -n dev  # The three old dependency Deployments should be gone.
+python3 .github/scripts/database-recovery.py snapshot
 ```
 
-## Storage lifecycle
+After the old instance has been removed, this command selects a suitable retained
+snapshot and writes local Terraform restore inputs:
 
-The [StatefulSet PVC policy](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/#persistentvolumeclaim-retention)
-uses `whenDeleted: Delete`, `whenScaled: Retain`. Pod replacement and temporary
-scale-down preserve data. Deleting a StatefulSet also deletes its PVC; the
-[gp3 StorageClass](../platform/storage/gp3-storageclass.yaml) uses
-`reclaimPolicy: Delete`, so CSI deletes the backing EBS volume after detachment.
+```sh
+python3 .github/scripts/database-recovery.py restore
+```
 
-For environment teardown, stop GitOps reconciliation first (including the parent
-Application, which otherwise restores the child), then delete these StatefulSets
-before destroying EKS. Wait for their PVCs/PVs and EBS volumes to disappear while
-the cluster and storage controllers still exist. Removing only the EKS cluster
-does not guarantee volume cleanup.
+Review and apply Terraform separately to perform the restore. Deletion protection
+and local overrides also affect teardown; review the effective Terraform plan.
+
+## Demo storage cleanup before cluster destruction
+
+The demo StatefulSets delete their PVCs when removed. The `gp3` StorageClass then
+deletes the backing EBS volumes. Stop reconciliation of both the parent and demo
+Applications before removing the StatefulSets:
 
 ```sh
 kubectl patch application platform-root -n argocd --type=merge \
@@ -52,9 +63,9 @@ kubectl patch application otel-demo -n argocd --type=merge \
 kubectl delete statefulset astronomy-db kafka valkey-cart -n dev --wait=true
 kubectl wait --for=delete pvc/data-astronomy-db-0 pvc/data-kafka-0 pvc/data-valkey-cart-0 \
   -n dev --timeout=300s
-kubectl get pv  # Confirm their PVs are removed before Terraform destroys EKS.
 ```
 
-Delete normally, without orphaning pods. Deleting a PVC loses that dependency's
-data permanently. Grafana/Keycloak RDS snapshots and monitoring PVCs have their
-own lifecycle and are unaffected by this change.
+This intentionally deletes demo data. Confirm the associated PVs/EBS volumes are
+gone while EKS and its storage controllers still exist; deleting the cluster alone
+does not guarantee cleanup. Monitoring PVCs and RDS have separate lifecycles and
+must be retained or cleaned up deliberately.

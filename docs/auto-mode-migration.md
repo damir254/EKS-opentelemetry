@@ -1,53 +1,69 @@
-# Custom Auto Mode capacity
+# Auto Mode capacity and cluster startup
 
-The `development` NodePool allows only `m7i-flex.large` (2 CPUs, 8 GiB RAM),
-on-demand and amd64. It is capped at six instances (12 CPUs / 48 GiB).
-Eligibility was verified against EC2 on 2026-10-07; eligible does not mean all
-EKS/EC2 costs are free. `WhenEmptyOrUnderutilized` consolidation can evict and
-repack running workloads when their resource requests fit on fewer nodes.
-Node expiration, maintenance and failure replacement also remain.
+The cluster uses a custom Auto Mode NodeClass and NodePool named `development`.
+Terraform creates the AWS roles and access configuration; the Kubernetes manifests
+describe which worker capacity Auto Mode can provision.
 
-Terraform creates the custom node role, its EC2 access entry and the security
-group discovery tag. Kubernetes manifests select private subnets/security groups
-by tags, so recreated IDs do not need Git edits. These manifests target the
-repository's `otel-demo-eks` cluster name; update role/tag selectors if renaming it.
+The current pool uses on-demand, amd64 `m7i-flex.large` instances in private subnets.
+Its resource limits allow up to six of those instances. This is a capacity limit,
+not a fixed node count: pending pods trigger provisioning, and consolidation can
+remove or replace nodes when workloads fit on less capacity.
 
-## Recreate
+Configuration lives in [platform/auto-mode](../platform/auto-mode/).
+The NodeClass uses cluster-specific role names and discovery tags, which must
+match Terraform if the cluster name changes. Built-in node pools are disabled.
 
-1. On a fresh, empty cluster, run
-   `terraform apply -var='enable_metrics_server=false'` from `terraform/`.
-   Built-in pools are disabled by default. The add-on cannot become healthy
-   before custom capacity is configured; do not use this override on an existing
-   environment because it removes the installed Metrics Server add-on.
-2. Configure kubeconfig as the cluster administration role.
-3. Run `bash platform/auto-mode/bootstrap.sh` from the repository root.
-4. Run `terraform apply` again with the default `enable_metrics_server=true`.
-   The add-on's pending pods trigger worker provisioning.
-5. Install Argo CD and apply its root Application. Its `auto-mode` Application
-   then reconciles the same manifests. New pending pods trigger node creation.
+## Fresh cluster startup
 
-## Migrate an existing cluster
+Before starting, configure the AWS/GitHub/domain references, local Terraform inputs
+and state backend. [terraform/bootstrap](../terraform/bootstrap/) creates the state
+bucket separately; configure [backend.tf](../terraform/backend.tf) to use it.
 
-1. Apply Terraform with
-   `-var='auto_mode_builtin_node_pools=["system","general-purpose"]'` to add
-   permissions while retaining old pools.
-2. Run the bootstrap script; schedule a test pod explicitly onto `development`
-   and confirm an eligible node becomes Ready.
-3. Cordon old nodes to stop new placements. Drain one old node at a time,
-   respecting PDBs and waiting for replacement readiness. The custom pool's
-   higher weight directs new capacity to eligible instances during migration.
-   Keep monitoring and demo dependency PVCs and allow EBS reattachment in their
-   original AZ. Single-instance demo dependencies briefly stop during reattachment;
-   the initial migration from ephemeral Deployments starts with fresh data.
-4. Apply Terraform without the override only after workloads have migrated.
-   Removing built-in pool names drains/terminates their remaining nodes.
-5. Verify readiness, dashboard HTTPS access, unchanged monitoring volume IDs and
-   that all worker nodes belong to `development`. Remove the test pods.
+Run the following sequence from the repository root:
 
-Do not force-delete blocked pods or PDBs to finish a drain. Investigate readiness,
-AZ constraints and available replacement capacity instead.
+1. Initialize Terraform and create infrastructure without Metrics Server:
 
-The live migration on 2026-10-07 verified readiness, both HTTPS dashboard health
-endpoints and unchanged monitoring volumes. EKS applies were scoped to
-`module.eks` to leave unrelated RDS parameter drift untouched. Review a full
-Terraform plan separately before applying other infrastructure changes.
+   ```sh
+   terraform -chdir=terraform init
+   terraform -chdir=terraform apply -var='enable_metrics_server=false'
+   ```
+
+2. Authenticate as the configured cluster-administration role and update kubeconfig.
+   Terraform's `update_kubeconfig_command` output provides the command.
+
+3. Enable networking support and install the custom capacity definitions:
+
+   ```sh
+   bash platform/auto-mode/bootstrap.sh
+   ```
+
+4. Apply Terraform again with the default Metrics Server setting:
+
+   ```sh
+   terraform -chdir=terraform apply
+   ```
+
+5. Prepare application secrets, initial ECR images and Image Updater access, then
+   install Argo CD using [platform/argocd/values.yaml](../platform/argocd/values.yaml).
+   Use the chart version validated by Infrastructure CI and apply
+   [root-application.yaml](../platform/argocd/root-application.yaml).
+
+The initial override avoids waiting for an add-on before custom worker capacity
+exists. Use it only for a fresh cluster: disabling the setting on an existing
+environment removes the installed Metrics Server add-on.
+
+After startup, Argo CD owns reconciliation of the same Auto Mode manifests.
+It also deploys platform network allowlists from
+[platform/network-policies](../platform/network-policies/); demo service rules are
+configured in the [demo chart](../helm/otel-demo/values/network-policy.yaml).
+
+## Availability during node replacement
+
+Consolidation and maintenance can move workloads between nodes. Replicas,
+disruption budgets and placement rules protect selected services, but
+single-instance demo dependencies briefly stop while their EBS volumes reattach.
+Their volumes remain tied to an availability zone.
+
+When changing capacity, inspect pending-pod events, placement constraints and
+replacement readiness. See [storage lifecycle](dependency-storage.md) for the
+difference between replacing a pod and deleting its persistent data.

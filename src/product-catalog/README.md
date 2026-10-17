@@ -1,74 +1,41 @@
-# Product Catalog Service
+# Product Catalog service
 
-When this service is run the output should be similar to the following
+Provides gRPC endpoints to list, retrieve and search products stored in PostgreSQL.
+It converts database rows to the demo's protobuf messages and emits telemetry for
+requests and database queries.
 
-```json
-{"message":"successfully parsed product catalog json","severity":"info","timestamp":"2022-06-02T23:54:10.191283363Z"}
-{"message":"starting grpc server at :3550","severity":"info","timestamp":"2022-06-02T23:54:10.191849078Z"}
-```
+The demo PostgreSQL initialization script creates the catalog data. The service
+requires `DB_CONNECTION_STRING`; deployment supplies it through a Kubernetes
+Secret backed by Secrets Manager. Runtime settings are in
+[product-catalog.yaml](../../helm/otel-demo/services/product-catalog.yaml).
 
-## Local Build
+## Tests and local build
 
-To build the service binary, run:
-
-```sh
-go build -o /go/bin/product-catalog/
-```
-
-## Docker Build
-
-From the root directory, run:
+Use the Go version declared in [go.mod](go.mod). From this directory:
 
 ```sh
-docker compose build product-catalog
+go test ./...
+go build -o product-catalog .
 ```
 
-Database Calls Instrumentation
+The tests cover row conversion, required configuration and database-error
+handling. They do not require a running database. Running the server itself
+requires PostgreSQL, Flagd and the configured telemetry endpoints.
 
-PostgreSQL queries are instrumented with
-[otelsql](https://pkg.go.dev/github.com/XSAM/otelsql), with SQLCommenter enabled
-to append trace context to SQL statements (for example, `traceparent` key-value
-pairs in query comments).
+## Container build
 
-The option is configured in `main.go` when opening the database connection:
-
-```go
-db, err = otelsql.Open("postgres", connStr,
-    dbAttrs,
-    otelsql.WithSQLCommenter(true),
-    otelsql.WithSpanOptions(...),
-)
-```
-
-Queries must use context-aware methods such as `QueryContext` and
-`QueryRowContext` so the active trace context is available when SQL comments
-are injected.
-
-## Regenerate protos
-
-To build the protos, run from the root directory:
+From the repository root:
 
 ```sh
-make docker-generate-protobuf
+docker build --platform linux/amd64 -f src/product-catalog/Dockerfile -t product-catalog:local .
 ```
 
-## Generate feature flag types
+The Dockerfile compiles a Linux amd64 binary and packages it in a non-root
+runtime image. Product Catalog CI runs the Go tests before building and scanning.
 
-To regenerate the typed feature flag accessors from `flags.json`, run from the
-service directory:
+## Generated code
 
-```sh
-go generate ./...
-```
-
-This uses the [OpenFeature CLI](https://github.com/open-feature/cli) to
-produce `flags/flags_gen.go`.
-
-## Bump dependencies
-
-To bump all dependencies run:
-
-```sh
-go get -u -t ./...
-go mod tidy
-```
+Protobuf and feature-flag bindings are checked in. Their generation inputs and
+tools are under [pb/](../../pb/), [genproto/](genproto/) and [flags.json](flags.json),
+with generation directives in [main.go](main.go). Regeneration is needed when
+those interfaces change, rather than for a normal service build.

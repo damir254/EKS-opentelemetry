@@ -1,99 +1,78 @@
-# CI and release gates
+# CI and releases
 
-Infrastructure CI runs on every PR and push to `main`, including GitOps commits.
-It validates both Terraform configurations without AWS credentials, lints
-workflows, renders the actual Argo CD Helm sources, validates built-in/custom
-resource schemas, and runs database-bootstrap and release-gate tests. It also tests
-browser ingestion against pinned Envoy/Collector images on an isolated Docker
-network. Missing
-schemas, duplicate YAML keys and floating images in project-owned workloads fail
-validation. Chart-managed images follow their pinned chart versions.
-Native telemetry tests also verify that pod identities keep replica counters and
-histograms separate, preserve Kubernetes metadata and retain service RED totals.
-See [application telemetry identity](telemetry-identity.md).
-Pipeline checks also validate Prometheus alert behavior and dashboard queries,
-then inject Collector export/queue failures and verify recovery without a cluster.
-Workload/dependency tests cover Rollout/StatefulSet ownership, actual custom
-Rollout metric generation, dependency alert behavior and pinned exporter/server
-compatibility.
-Grafana validation requires AWS-backed admin credentials for both the server and
-reload sidecars; recovery tests check password handling and sync prerequisites.
-Access guards require one HTTPS ALB class, its certificate list, separate host
-rules and dashboard/Locust source-IP conditions. ExternalDNS watches only that
-class. Keycloak joins that class; administration retains its own source-IP condition.
-Runtime tests also verify the demo's old Locust routes return 404.
-Demo storage tests replace pinned PostgreSQL, Kafka and Valkey containers on the
-same volumes and verify rows, messages, consumer offsets and AOF carts survive.
-Manifest guards require gp3 cleanup, migration-safe Service selectors and
-consolidation without `do-not-disrupt`.
-Platform network guards verify workload/hook coverage, internal pod and Service
-routes, bounded ingress and DNS-based outbound allowlists. They require one
-platform policy per managed workload and Service-client allowlist, one Keycloak
-policy owner and no migration workloads.
-An optional [isolated live smoke test](platform-network-isolation.md) verifies EKS enforcement;
-CI itself never connects to the cluster.
-Keycloak tests exercise optimized production startup, isolated PostgreSQL
-permissions, realm/client provisioning, bootstrap access removal and password/access
-continuity after reconciliation and restart. Guards reject public admin/management
-routes, plaintext credentials and weakened dashboard OIDC settings. The scheduled
-image inventory also includes the pinned official Keycloak image.
+GitHub Actions validates application and platform changes. Argo CD handles
+Kubernetes delivery from Git; Terraform changes are planned and applied manually.
 
-Service delivery uses **one build**:
+## What CI checks
 
-`tests → OCI build + SBOM/provenance → Trivy → candidate upload → digest check → Cosign sign/verify → release tag`
+| Workflow | Purpose |
+| --- | --- |
+| [Infrastructure CI](../.github/workflows/ci-infrastructure.yaml) | Validate Terraform, workflows and rendered Kubernetes configuration; run platform tests. |
+| [Payment CI](../.github/workflows/ci-payment.yaml) | Test payment behavior and graceful shutdown, then build and scan the image. |
+| [Product Catalog CI](../.github/workflows/ci-product-catalog.yaml) | Run Go tests, then build and scan the image. |
+| [Recommendation CI](../.github/workflows/ci-recommendation.yaml) | Test recommendations and telemetry startup, then build and scan the image. |
+| [Upstream image scans](../.github/workflows/scan-upstream-images.yaml) | Check the configured public images daily and on manual dispatch. |
 
-Trivy scans the unpacked OCI layout. Skopeo publishes the original archive with
-`--all --preserve-digests`, preserving its image index and attestations. Only
-after signing and verification does CI create `release-<40-character commit SHA>`.
-Image Updater accepts only that pattern; candidate/legacy/signature tags are
-ineligible. Existing SHA tags in `dev-images.yaml` remain usable until the next
-successful service build updates them. Never manually create release tags.
+Infrastructure CI runs on every PR and push to `main`. It renders the Helm sources
+and values configured in Argo CD, checks Kubernetes schemas, and applies custom
+rules for images, access, networking, storage and telemetry. Tests also cover
+credential initialization, release safeguards, monitoring rules and selected
+component behavior using local Docker containers.
 
-[Upstream/platform scans](../.github/workflows/scan-upstream-images.yaml) run daily
-at **04:43 UTC** and on manual dispatch, without AWS credentials or a cluster.
-They render the configured Argo CD charts and inventory public workload/init
-images, including Istio injection and Prometheus/Alertmanager/reloader images.
-Trivy reports all High/Critical findings; available fixes fail the job. Each
-image gets a job summary and a JSON artifact retained for 14 days. Other matrix
-jobs continue when one image fails. Private ECR service images retain their
-build-time gates; EKS-managed add-on/node components are outside this inventory.
-These scans report findings; digest upgrades still require reviewed changes.
+These checks run without AWS credentials or a live cluster. They provide coverage
+for configuration and component behavior, rather than a complete deployment test.
+Some custom rules describe the current architecture and need review when that
+architecture intentionally changes.
 
-PR jobs receive no AWS/OIDC publishing permission. Publication runs only on a
-push to `main`. No credentials were added to Git. Failed signing can leave an
-ineligible candidate tag; inspect/remove failed candidates during registry cleanup.
-Rebuilding an already released commit can fail because its release tag is immutable;
-publish a new commit rather than replacing an existing release.
+## Application image delivery
 
-## Require checks before merging
+The three maintained services share [one build-and-publish workflow](../.github/workflows/reusable-build-push.yaml):
 
-GitHub's `main` branch was unprotected when inspected. Workflow files alone do not
-make passing checks mandatory. **After pushing these files**, run:
+1. Service tests must pass.
+2. Build one `linux/amd64` OCI image archive with an SBOM and build provenance.
+3. Scan that artifact with Trivy. Fixable HIGH or CRITICAL vulnerabilities block publication.
+4. On a push to `main`, upload a candidate image and check its digest against the build output.
+5. Sign and verify the image with Cosign, then publish its immutable `release-<commit SHA>` tag.
+6. Image Updater selects eligible release images and commits their references to
+   [dev-images.yaml](../helm/otel-demo/environments/dev-images.yaml).
+7. Argo CD reconciles that Git change. Payment proceeds through a canary rollout
+   checked against Prometheus traffic, error-rate and latency metrics.
 
-```bash
-python3 .github/scripts/require-infrastructure-checks.py
+The artifact scanned is the artifact published; publication does not rebuild it.
+The SBOM records included software, and provenance records build information.
+Signature verification takes place in CI. An admission policy requiring image
+signatures is not currently configured in the cluster.
+
+PR runs build and scan without AWS publishing credentials. Main-branch publication
+uses GitHub OIDC to obtain short-lived AWS credentials. Actions, base images and
+tool versions are pinned in their configuration files.
+
+## Public image scans
+
+The scheduled workflow inventories images from the configured charts, including
+init containers and selected images created by controllers. It scans public images;
+private ECR application images have their build-time scan.
+
+Reports include unfixed HIGH/CRITICAL findings, while only findings with available
+fixes block the vulnerability gate. JSON reports are retained as workflow artifacts.
+A finding requires investigation and an image/configuration update; the scan does
+not upgrade the environment automatically.
+
+## Required checks
+
+Required status checks must be enabled through GitHub repository rules; workflow
+files alone do not enforce them. The [setup helper](../.github/scripts/require-infrastructure-checks.py)
+can require the two infrastructure jobs on `main` while allowing Image Updater
+write-back. The helper requires Image Updater to own the sole writable deploy key.
+Running it changes repository settings and requires suitable GitHub permissions.
+
+For local validation, use the tool versions in Infrastructure CI. In a Python
+virtual environment, run:
+
+```sh
+python3 -m pip install -r .github/scripts/requirements.txt
+bash .github/scripts/validate-kubernetes.sh
 ```
 
-The script requires the enabled workflow to exist on `main`, then creates/updates
-a ruleset requiring **Terraform validation** and **Kubernetes and workflow validation**
-from the GitHub Actions app. Human updates must have passing checks; use PRs.
-GitHub's deploy-key bypass covers all deploy keys, so the script requires Image
-Updater to own the **sole writable key**. Its automatic Git write-back continues;
-treat that SSH key as privileged and do not add other writable deploy keys.
-Use a dedicated GitHub App for a separately scoped bypass if more automation is
-needed. [GitHub ruleset API](https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset).
-Other rulesets remain unchanged. No GitHub rules were changed locally.
-
-## Update pins deliberately
-
-Demo/dependency/init images use registry-verified digests. The readable tag before
-`@sha256:` does not control the downloaded contents. Metrics Server is pinned to
-`v0.9.0-eksbuild.11`, verified compatible with EKS 1.36 in `eu-central-1` on 2026-10-06.
-Refresh image digests through reviewed changes; verify add-on compatibility before
-upgrading Kubernetes. Terraform never resolves a floating Metrics Server version.
-
-Frontend Proxy uses official Envoy **1.39.2**, pinned by digest, with patched
-OpenSSL `3.0.2-0ubuntu1.30`. Its demo routing/telemetry configuration is rendered
-from [this template](../helm/otel-demo/files/frontend-proxy/envoy.yaml.tpl) into a
-ConfigMap mounted at `/etc/envoy`. Configuration changes update the pod checksum
-and trigger a rollout; the container still runs as UID/GID 101.
+The validator requires Helm, kubeconform and network access for external charts
+and schemas. Individual service READMEs describe their test commands.

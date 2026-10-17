@@ -1,9 +1,14 @@
-# EKS API schemas
+# Kubernetes validation schemas
 
-NodePool, NodeClass and ApplicationNetworkPolicy schemas are derived from installed
-EKS Auto Mode CRDs on Kubernetes 1.36 (2026-10-07/08). They contain API definitions
-only. `validate-kubernetes.py` converts nullable OpenAPI fields and validates
-manifests strictly alongside IngressClassParams and chart CRDs.
+These JSON schemas let [the Kubernetes validator](../scripts/validate-kubernetes.py)
+check resources whose definitions are not available from the standard Kubernetes
+schema registry.
 
-Refresh schemas from matching EKS APIs when introducing new fields or upgrading
-API versions; do not bypass missing-schema validation.
+They cover EKS Auto Mode NodeClass and IngressClassParams, Karpenter NodePool, and
+AWS ApplicationNetworkPolicy resources. Custom resources supplied by Helm charts
+are validated using schemas extracted from their rendered CRDs.
+
+The checked-in definitions were taken from the project's EKS 1.36 APIs. Review
+them when upgrading those APIs or introducing new fields so CI validates the
+intended resource version. Schema validation checks fields and types; it does
+not establish that the live controllers can successfully provision a resource.

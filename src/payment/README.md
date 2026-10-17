@@ -1,16 +1,34 @@
-# Payment Service
+# Payment service
 
-This service is responsible for processing and validating payments through the
-application.
+Simulates payment processing over gRPC. It validates card details, returns a
+transaction ID, supports the demo failure flag and emits OpenTelemetry data.
+It does not connect to a real payment provider.
 
-## Local Build
+The service also handles graceful shutdown: it stops advertising readiness,
+allows active requests to finish and bounds how long shutdown can wait.
 
-Copy the `demo.proto` file to this directory and run `npm ci`
+## Tests
 
-## Docker Build
-
-From the root directory, run:
+Use the Node.js version in [.node-version](.node-version). From this directory:
 
 ```sh
-docker compose build payment
+npm ci
+npm test
 ```
+
+Tests cover payment validation, failure flags, telemetry behavior and request
+draining during shutdown. They do not require the full demo environment.
+
+## Container and deployment
+
+From the repository root:
+
+```sh
+docker build --platform linux/amd64 -f src/payment/Dockerfile -t payment:local .
+```
+
+The build includes the shared protobuf definition. Deployment settings, including
+the gRPC port, Flagd and Collector endpoints, are in
+[payment.yaml](../../helm/otel-demo/services/payment.yaml).
+Payment CI tests this service before calling the shared image workflow.
+Argo CD deploys published versions using Argo Rollouts and Istio canary routing.
