@@ -11,7 +11,6 @@ Kubernetes delivery from Git; Terraform changes are planned and applied manually
 | [Payment CI](../.github/workflows/ci-payment.yaml) | Test payment behavior and graceful shutdown, then build and scan the image. |
 | [Product Catalog CI](../.github/workflows/ci-product-catalog.yaml) | Run Go tests, then build and scan the image. |
 | [Recommendation CI](../.github/workflows/ci-recommendation.yaml) | Test recommendations and telemetry startup, then build and scan the image. |
-| [Upstream image scans](../.github/workflows/scan-upstream-images.yaml) | Check the configured public images daily and on manual dispatch. |
 
 Infrastructure CI runs on every PR and push to `main`. It renders the Helm sources
 and values configured in Argo CD, checks Kubernetes schemas, and applies custom
@@ -46,17 +45,6 @@ signatures is not currently configured in the cluster.
 PR runs build and scan without AWS publishing credentials. Main-branch publication
 uses GitHub OIDC to obtain short-lived AWS credentials. Actions, base images and
 tool versions are pinned in their configuration files.
-
-## Public image scans
-
-The scheduled workflow inventories images from the configured charts, including
-init containers and selected images created by controllers. It scans public images;
-private ECR application images have their build-time scan.
-
-Reports include unfixed HIGH/CRITICAL findings, while only findings with available
-fixes block the vulnerability gate. JSON reports are retained as workflow artifacts.
-A finding requires investigation and an image/configuration update; the scan does
-not upgrade the environment automatically.
 
 ## Required checks
 

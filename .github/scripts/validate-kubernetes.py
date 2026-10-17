@@ -2,7 +2,6 @@
 
 import argparse
 from copy import deepcopy
-import hashlib
 import importlib.util
 import ipaddress
 import json
@@ -218,54 +217,6 @@ def validate_grafana_admin(resources):
                     raise ValueError(f'Grafana/{container["name"]}/{variable} must use the stable admin Secret')
 
 
-def public_images(resources):
-    """Include workloads, init containers and images created by controllers."""
-    images = set()
-
-    def add(image):
-        if not re.fullmatch(r"[a-zA-Z0-9._/:@-]+", image) or not re.search(r"[:@]", image.rsplit("/", 1)[-1]):
-            raise ValueError(f"Unresolved container image: {image!r}")
-        # Maintained private ECR images have their own build/scan release gate.
-        if ".dkr.ecr." not in image:
-            images.add(image)
-
-    def walk(value):
-        if isinstance(value, dict):
-            for key, item in value.items():
-                if key == "image" and isinstance(item, str):
-                    add(item)
-                elif key == "args" and isinstance(item, list):
-                    for arg in item:
-                        if isinstance(arg, str) and arg.startswith("--prometheus-config-reloader="):
-                            add(arg.split("=", 1)[1])
-                walk(item)
-        elif isinstance(value, list):
-            for item in value:
-                walk(item)
-
-    for resource in resources:
-        walk(resource.get("spec", {}))
-        # Istio adds proxy/init containers at admission, after Helm rendering.
-        if resource.get("kind") == "ConfigMap" and "injector" in resource["metadata"]["name"]:
-            values = yaml.safe_load(resource.get("data", {}).get("values", "{}"))
-            global_values = values.get("global", {})
-            for component in ("proxy", "proxy_init"):
-                image = global_values.get(component, {}).get("image")
-                if image:
-                    if "/" not in image:
-                        variant = global_values.get("variant")
-                        suffix = f"-{variant}" if variant else ""
-                        image = f'{global_values["hub"]}/{image}:{global_values["tag"]}{suffix}'
-                    add(image)
-    if not images or len(images) > 256:
-        raise ValueError(f"Unexpected image inventory size: {len(images)}")
-    return {"include": [
-        {"image": image, "id": image.split("@", 1)[0].rsplit("/", 1)[-1].split(":", 1)[0][:35]
-         + "-" + hashlib.sha256(image.encode()).hexdigest()[:12]}
-        for image in sorted(images)
-    ]}
-
-
 def validate_demo_access(resources):
     config = documents(ROOT / "helm/otel-demo/environments/dev.yaml")[0]
     settings = config["ingress"]
@@ -423,7 +374,7 @@ def validate_keycloak(resources):
         raise ValueError("Keycloak must permit Auto Mode's node DNS resolvers on TCP/UDP 53")
 
 
-def validate(work, argocd_version, image_inventory=None):
+def validate(work, argocd_version):
     for directory in ("helm", "platform", ".github/workflows"):
         for path in (ROOT / directory).rglob("*.yaml"):
             if "templates" not in path.parts:
@@ -532,12 +483,6 @@ def validate(work, argocd_version, image_inventory=None):
     validate_demo_access(resources)
     validate_shared_alb(resources)
     validate_keycloak(resources)
-    if image_inventory:
-        image_inventory.parent.mkdir(parents=True, exist_ok=True)
-        inventory = public_images(resources)
-        image_inventory.write_text(json.dumps(inventory, separators=(",", ":")) + "\n")
-        print(f"Inventoried {len(inventory['include'])} public images from {render_count} Helm sources.")
-        return
 
     schemas = work / "schemas"
     shutil.copytree(ROOT / ".github/schemas", schemas)
@@ -593,8 +538,6 @@ def validate(work, argocd_version, image_inventory=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--argocd-version", default="10.9.6")
-    parser.add_argument("--image-inventory", type=Path,
-                        help="Render public image inventory to JSON instead of validating resource schemas")
     options = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="kubernetes-ci-") as directory:
-        validate(Path(directory), options.argocd_version, options.image_inventory)
+        validate(Path(directory), options.argocd_version)
