@@ -7,21 +7,18 @@ Kubernetes delivery from Git; Terraform changes are planned and applied manually
 
 | Workflow | Purpose |
 | --- | --- |
-| [Infrastructure CI](../.github/workflows/ci-infrastructure.yaml) | Validate Terraform, workflows and rendered Kubernetes configuration; run platform tests. |
+| [Infrastructure CI](../.github/workflows/ci-infrastructure.yaml) | Validate Terraform and workflows; run platform tests. |
 | [Payment CI](../.github/workflows/ci-payment.yaml) | Test payment behavior and graceful shutdown, then build and scan the image. |
 | [Product Catalog CI](../.github/workflows/ci-product-catalog.yaml) | Run Go tests, then build and scan the image. |
 | [Recommendation CI](../.github/workflows/ci-recommendation.yaml) | Test recommendations and telemetry startup, then build and scan the image. |
+| [Scheduled image scans](../.github/workflows/scan-images.yaml) | Report CVEs in configured public and private ECR images daily or on manual dispatch. |
 
-Infrastructure CI runs on every PR and push to `main`. It renders the Helm sources
-and values configured in Argo CD, checks Kubernetes schemas, and applies custom
-rules for images, access, networking, storage and telemetry. Tests also cover
-credential initialization, release safeguards, monitoring rules and selected
-component behavior using local Docker containers.
+Infrastructure CI runs on every PR and push to `main`. It checks Terraform and
+workflow syntax, then tests credential initialization, release safeguards and
+selected component behavior using local Docker containers.
 
 These checks run without AWS credentials or a live cluster. They provide coverage
 for configuration and component behavior, rather than a complete deployment test.
-Some custom rules describe the current architecture and need review when that
-architecture intentionally changes.
 
 ## Application image delivery
 
@@ -46,21 +43,18 @@ PR runs build and scan without AWS publishing credentials. Main-branch publicati
 uses GitHub OIDC to obtain short-lived AWS credentials. Actions, base images and
 tool versions are pinned in their configuration files.
 
+The scheduled scan runs daily at 04:43 UTC and can be triggered manually from
+`main`. It discovers runtime images from rendered GitOps configuration, including
+init containers and controller images, using [discover-images.py](../.github/scripts/discover-images.py).
+Private ECR scans reuse `AWS_ROLE_ARN` and GitHub OIDC. Reports include all CVE
+severities and unfixed findings in job summaries and downloadable artifacts kept
+for seven days. Findings are informational; scan/authentication errors fail the run.
+
 ## Required checks
 
 Required status checks must be enabled through GitHub repository rules; workflow
-files alone do not enforce them. The [setup helper](../.github/scripts/require-infrastructure-checks.py)
-can require the two infrastructure jobs on `main` while allowing Image Updater
-write-back. The helper requires Image Updater to own the sole writable deploy key.
-Running it changes repository settings and requires suitable GitHub permissions.
+files alone do not enforce them. Manage these settings in GitHub and preserve
+Image Updater's Git write-back access when configuring branch restrictions.
 
-For local validation, use the tool versions in Infrastructure CI. In a Python
-virtual environment, run:
-
-```sh
-python3 -m pip install -r .github/scripts/requirements.txt
-bash .github/scripts/validate-kubernetes.sh
-```
-
-The validator requires Helm, kubeconform and network access for external charts
-and schemas. Individual service READMEs describe their test commands.
+For local checks, use the commands and tool versions in Infrastructure CI.
+Individual service READMEs describe their test commands.

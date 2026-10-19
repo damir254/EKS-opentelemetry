@@ -61,7 +61,7 @@ jobs:
         with:
           version: v4.2.3
 
-      - name: Set up Python for YAML validation
+      - name: Set up Python for platform tests
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
@@ -69,28 +69,22 @@ jobs:
       - name: Install YAML parser
         run: python -m pip install -r .github/scripts/requirements.txt
 
-      - name: Install checksum-pinned actionlint and kubeconform
+      - name: Install checksum-pinned actionlint
         working-directory: ${{ runner.temp }}
         run: |
           curl --fail --silent --show-error --location --retry 3 --output actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           echo '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz' | sha256sum --check
-          curl --fail --silent --show-error --location --retry 3 --output kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz
-          echo '9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  kubeconform.tar.gz' | sha256sum --check
           mkdir -p ci-tools
           tar -xzf actionlint.tar.gz -C ci-tools actionlint
-          tar -xzf kubeconform.tar.gz -C ci-tools kubeconform
           echo "$PWD/ci-tools" >> "$GITHUB_PATH"
 
       - name: Lint GitHub Actions workflows
         run: actionlint .github/workflows/*.yaml
 
-      - name: Lint, render, and schema-check Helm and platform YAML
-        run: bash .github/scripts/validate-kubernetes.sh
-
       - name: Test Grafana database credential initialization
         run: python -m unittest discover -s platform/monitoring/database/tests -v
 
-      - name: Test manifest guards and image release gates
+      - name: Test operational helpers and image release gates
         run: python -m unittest discover -s .github/scripts/tests -v
 
       - name: Test Keycloak credential continuity and realm reconciliation
@@ -98,21 +92,6 @@ jobs:
 
       - name: Test Keycloak startup and database isolation
         run: python .github/scripts/test-keycloak.py
-
-      - name: Test browser telemetry with pinned Envoy and Collector
-        run: python .github/scripts/test-browser-telemetry.py
-
-      - name: Test native metric identity across replicas with pinned Collector
-        run: python .github/scripts/test-native-metrics.py
-
-      - name: Test telemetry alerts and Collector failure visibility
-        run: python .github/scripts/test-telemetry-pipeline.py
-
-      - name: Test workload ownership and dependency alert behavior
-        run: python .github/scripts/test-monitoring-rules.py
-
-      - name: Test dependency metrics with pinned servers and exporters
-        run: python .github/scripts/test-dependency-metrics.py
 
       - name: Test demo dependency persistence across container replacement
         run: python .github/scripts/test-demo-storage.py

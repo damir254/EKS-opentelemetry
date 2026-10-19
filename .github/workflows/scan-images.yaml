@@ -1,0 +1,116 @@
+name: Scheduled image vulnerability scans
+
+on:
+  schedule:
+    - cron: "43 4 * * *" # Daily at 04:43 UTC.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduled-image-scans
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    # The existing AWS OIDC role trusts main; manual runs use the same branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    outputs:
+      images: ${{ steps.inventory.outputs.images }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.2.3
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install YAML parser
+        run: python -m pip install -r .github/scripts/requirements.txt
+
+      - name: Discover configured public and private images
+        id: inventory
+        run: |
+          python3 .github/scripts/discover-images.py --output "$RUNNER_TEMP/images.json"
+          printf 'images=%s\n' "$(cat "$RUNNER_TEMP/images.json")" >> "$GITHUB_OUTPUT"
+
+  scan:
+    needs: inventory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.inventory.outputs.images) }}
+    env:
+      TRIVY_PLATFORM: linux/amd64
+      TRIVY_IMAGE_SRC: remote
+      TRIVY_IGNOREFILE: /dev/null
+      TRIVY_TABLE_MODE: detailed
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to AWS with GitHub OIDC
+        if: contains(matrix.image, '.dkr.ecr.')
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: eu-central-1
+          audience: sts.amazonaws.com
+          role-session-name: scan-${{ github.run_id }}
+
+      - name: Log in to Amazon ECR
+        if: contains(matrix.image, '.dkr.ecr.')
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Scan image for CVEs of every severity
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.74.0
+          scan-type: image
+          image-ref: ${{ matrix.image }}
+          scanners: vuln
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: "0"
+          format: json
+          output: ${{ runner.temp }}/scan.json
+          timeout: 10m
+
+      - name: Write readable CVE report to the job summary
+        env:
+          SCANNED_IMAGE: ${{ matrix.image }}
+        run: |
+          trivy convert --format table --scanners vuln --output "$RUNNER_TEMP/scan.txt" "$RUNNER_TEMP/scan.json"
+          {
+            printf '### %s\n\n```text\n' "$SCANNED_IMAGE"
+            cat "$RUNNER_TEMP/scan.txt"
+            printf '\n```\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve scan reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: image-scan-${{ matrix.id }}
+          path: ${{ runner.temp }}/scan.*
+          retention-days: 7
+          if-no-files-found: warn

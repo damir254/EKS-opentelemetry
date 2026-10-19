@@ -39,5 +39,4 @@ sum(rate(demo_recommendation_requests_recommendations_total{
 The [shared chart defaults](../helm/otel-demo/values.yaml) and
 [workload template](../helm/otel-demo/templates/_services.tpl) define the application
 identity. The [Collector configuration](../helm/otel-demo/files/otel-collector/config.yaml)
-defines signal routing. CI checks the rendered identity settings and exercises
-replica separation through a real Collector using local test data.
+defines signal routing.
