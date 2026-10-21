@@ -60,7 +60,6 @@ jobs:
       TRIVY_PLATFORM: linux/amd64
       TRIVY_IMAGE_SRC: remote
       TRIVY_IGNOREFILE: /dev/null
-      TRIVY_TABLE_MODE: detailed
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -98,6 +97,7 @@ jobs:
       - name: Write readable CVE report to the job summary
         env:
           SCANNED_IMAGE: ${{ matrix.image }}
+          TRIVY_TABLE_MODE: detailed
         run: |
           trivy convert --format table --scanners vuln --output "$RUNNER_TEMP/scan.txt" "$RUNNER_TEMP/scan.json"
           {
