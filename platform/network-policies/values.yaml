@@ -37,6 +37,7 @@ externalProfiles:
       - grafana-community.github.io
       - kubernetes-sigs.github.io
       - charts.external-secrets.io
+      - external-secrets.io 
       - blob.istio.io
       - storage.googleapis.com
     ports: [443]
